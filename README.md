@@ -28,21 +28,22 @@ Target: Commodore VIC-20, **PAL**.
 
 This game needs more RAM than a bare VIC-20 provides, via a memory
 expansion cartridge (or an emulator's equivalent expansion setting). The
-minimum required configuration is **expansion blocks 0, 1, 2, 3 and 5
-active** (block 4 stays inactive):
+minimum required configuration is **expansion blocks 1, 2 and 3 active**
+(block 4 stays inactive):
 
 | Block | Address range     | Size  |
 |-------|--------------------|-------|
-| 0     | `$0400`–`$0FFF`    | +3 KB |
 | 1     | `$2000`–`$3FFF`    | +8 KB |
 | 2     | `$4000`–`$5FFF`    | +8 KB |
 | 3     | `$6000`–`$7FFF`    | +8 KB |
-| 5     | `$A000`–`$BFFF`    | +8 KB (normally reserved for cartridges — used here as RAM) |
 
-That's ~35 KB usable — not one of the SDK's standard contiguous
-`0/3/8/16/24` KB presets, which is why the project links against a
-[custom linker script](link/vic20-fruit-invaders.ld) instead (see
-[link/README.md](link/README.md) and CLAUDE.md's "Target hardware").
+That's 24 KB usable — one of the SDK's standard contiguous `0/3/8/16/24` KB
+presets, but the project still links against a
+[custom linker script](link/vic20-fruit-invaders.ld) for an unrelated
+reason (a reserved character-memory window), and that script also keeps
+two more blocks (0 and 5, +3 KB and +8 KB) provisioned but currently unused
+for future growth — see [link/README.md](link/README.md) and CLAUDE.md's
+"Target hardware".
 
 ## Toolchain
 
