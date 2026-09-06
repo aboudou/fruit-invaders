@@ -9,21 +9,42 @@ still open.
 
 - **Machine**: Commodore VIC-20 **PAL** (affects video/raster timing and VIA
   frequencies — do not plan for NTSC-variant code).
-- **Required memory configuration: expansion blocks 0, 1, 2, 3 and 5 active.**
-  - Block 0: `$0400–$0FFF` (+3K)
+- **Required memory configuration (current code): expansion blocks 1, 2 and
+  3 active.**
   - Block 1: `$2000–$3FFF` (+8K)
   - Block 2: `$4000–$5FFF` (+8K)
   - Block 3: `$6000–$7FFF` (+8K)
-  - Block 5: `$A000–$BFFF` (+8K, normally reserved for cartridges — used
-    here as RAM)
   - Block 4 (`$8000–$9FFF`) stays **inactive** (character ROM / extended I/O
     area).
+  - **Blocks 0 (`$0400–$0FFF`, +3K) and 5 (`$A000–$BFFF`, +8K, normally
+    reserved for cartridges) are provisioned in the linker script for future
+    growth but are not required by the code today.** Confirmed empirically
+    (2026-09-06, VICE `vice` MCP server): the linker's `.block0`/`.block5`
+    sections are both zero-sized in the current build
+    (`__block0_start == __block0_end`, `__block5_start == __block5_end`, no
+    source file references either section), and a "stack-painting" test
+    (sentinel-fill `$4FB4`-`$7FFF` with `0xAA`, then play through several
+    title/countdown/gameplay/explosion/level-transition cycles and check how
+    far the sentinel got overwritten) showed the software stack never
+    descends more than ~90 bytes below `__stack` (`$8000`) and the heap is
+    never touched — static data (`.text`/`.rodata`/`.data`/`.bss`) and the
+    runtime stack both stay comfortably inside blocks 1-3. If a future
+    feature (more fruit types, gameplay music, larger sprite/level data)
+    needs more RAM, block 0 and/or block 5 are the next ones to activate —
+    update this section and re-run the same VICE verification when that
+    happens, rather than assuming.
   - **Important**: the SDK's default link script
     (`mos-platform/vic20/lib/link.ld`) only knows the standard contiguous
-    `0/3/8/16/24` KB combinations starting at block 1, and does not handle
-    block 5 separately. The 0+1+2+3+5 configuration (~35 KB usable) required
-    here **needs a custom linker script** derived from it (see the Toolchain
-    section).
+    `0/3/8/16/24` KB combinations starting at block 1. Blocks 1+2+3 (24 KB)
+    is one of those standard combos, but this project still **needs a
+    custom linker script** regardless (see
+    [link/vic20-fruit-invaders.ld](link/vic20-fruit-invaders.ld)): it fixes
+    an unrelated issue where the default script could place ordinary
+    code/data inside the `$1400-$1FFF` custom character-memory window (see
+    "Sprite storage format"), and it keeps blocks 0/5 available as ready-to
+    use (currently empty, zero-sized) `.block0`/`.block5` sections for the
+    day they're actually needed (see the Toolchain section and
+    [link/README.md](link/README.md)).
 
 ## Language and coding conventions
 
