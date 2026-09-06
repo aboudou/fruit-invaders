@@ -1,0 +1,4 @@
+*.prg
+*.prg.elf
+*.o
+*.map
