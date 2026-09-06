@@ -5,6 +5,12 @@ pixelated fruits and vegetables — text-mode pseudo-graphics only (custom
 character set redefined in RAM), no hardware sprites, no bitmap mode. See
 [CLAUDE.md](CLAUDE.md) for the full design/technical documentation.
 
+## Screenshots
+
+| Title screen | Gameplay |
+|---|---|
+| ![Title screen](docs/screenshots/title.png) | ![Gameplay](docs/screenshots/gameplay.png) |
+
 ## Controls
 
 | Key     | Action                                  |
