@@ -2,3 +2,4 @@
 *.prg.elf
 *.o
 *.map
+.vscode/
