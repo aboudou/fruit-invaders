@@ -1,5 +1,7 @@
 # Fruit Invaders
 
+[![Build and release](https://github.com/aboudou/fruit-invaders/actions/workflows/build-release.yml/badge.svg)](https://github.com/aboudou/fruit-invaders/actions/workflows/build-release.yml)
+
 A *Space Invaders* clone for the Commodore VIC-20, where the invaders are
 pixelated fruits and vegetables — text-mode pseudo-graphics only (custom
 character set redefined in RAM), no hardware sprites, no bitmap mode. See
