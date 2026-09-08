@@ -9,18 +9,29 @@ character set redefined in RAM), no hardware sprites, no bitmap mode. See
 
 ## Screenshots
 
-| Title screen | Gameplay |
-|---|---|
-| ![Title screen](docs/screenshots/title.png) | ![Gameplay](docs/screenshots/gameplay.png) |
+| Title screen | Help screen | Gameplay |
+|---|---|---|
+| ![Title screen](docs/screenshots/title.png) | ![Help screen](docs/screenshots/help.png) | ![Gameplay](docs/screenshots/gameplay.png) |
 
 ## Controls
 
-| Key     | Action                                  |
-|---------|------------------------------------------|
-| `S`     | Move left                               |
-| `D`     | Move right                              |
-| `Space` | Fire / start / confirm                  |
-| `M`     | Toggle background music (title screen)  |
+Title screen only:
+
+| Key     | Action                          |
+|---------|----------------------------------|
+| `M`     | Toggle background music         |
+| `L`     | Toggle English/French           |
+| `F1`    | Open the help screen (`F1` again to return) |
+
+In game only:
+
+| Key     | Action                  |
+|---------|--------------------------|
+| `S`     | Move left                |
+| `D`     | Move right               |
+| `Space` | Fire                     |
+| `P`     | Pause / resume           |
+| `H`     | Return to the title screen |
 
 ## Hardware requirements
 

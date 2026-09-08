@@ -7,9 +7,10 @@
 #include "../graphics/sprites.h"
 #include "../graphics/starfield.h"
 #include "../sound/sound.h"
+#include "help.h"
 #include "lang.h"
 
-#include <cbm.h>    /* cbm_k_getin(): KERNAL keyboard-buffer read */
+#include <cbm.h>    /* cbm_k_getin(): KERNAL keyboard-buffer read, and CH_F1 (via vic20.h) */
 #include <string.h> /* strlen(): centers the start prompt within its field, see below */
 
 /* KERNAL jiffy clock, low byte: incremented by the IRQ at the PAL raster
@@ -24,15 +25,16 @@
  * two rows (TITLE_ROW, TITLE_ROW+1) -- bigfont_print()'s letters are 1
  * column wide x 2 rows tall (see bigfont.h) -- leaving rows 4-6 as a gap
  * before the fruit ticker. Rows 0 and MARQUEE_ROW_BOTTOM (the top/bottom
- * edges) belong to the chasing-light border (see draw_marquee() below);
+ * edges) belong to the chasing-light border (see decor_draw_marquee());
  * every other gap row not named here is background for the starfield (see
- * starfield_draw_all()). CONTROLS_ROW/MUTE_HINT_ROW stay full sentences (see
- * draw_static()) -- an icon-only version was tried and reverted, plain text
- * read more clearly. */
+ * starfield_draw_all()). The controls themselves are no longer spelled out
+ * here -- HELP_HINT_ROW just points at the dedicated help screen instead
+ * (F1, see help.c) -- an earlier version had two full sentences on this
+ * row and the next (and, before that, an icon-only version), both dropped
+ * once the help screen took over listing every control. */
 #define TITLE_ROW           2
 #define FRUITS_ROW          7
-#define CONTROLS_ROW        13
-#define MUTE_HINT_ROW       15
+#define HELP_HINT_ROW       13
 #define MUTE_INDICATOR_ROW  16
 #define START_ROW           18
 #define MARQUEE_ROW_TOP     0
@@ -46,14 +48,13 @@
  * previous, longer string's trailing glyphs on screen (see font.h's
  * font_print_padded() doc comment). Computed by hand from lang.c's string
  * literals: */
-#define CONTROLS_FIELD_WIDTH     21 /* FR "S/D BOUGER ESPACE TIR" (21) > EN "S/D MOVE  SPACE FIRE" (20) */
-#define MUTE_HINT_FIELD_WIDTH    16 /* FR "M COUPER MUSIQUE" (16) > EN "M MUTE MUSIC" (12) */
 #define MUSIC_OFF_FIELD_WIDTH    11 /* FR "MUSIQUE OFF" (11) > EN "MUSIC OFF" (9) */
-/* Also the width of the field the start prompt is centered within (cols
- * 1-20, i.e. everything between the two framing arrow tiles at col 0 and 21
- * -- see the main loop below): EN fills it exactly, FR is centered inside
- * it rather than left-anchored, so a shorter translation doesn't end up
- * hugging the left arrow. */
+/* Width of the field both the help hint and the start prompt are centered
+ * within (cols 1-20, i.e. the full row minus the two framing arrow-tile
+ * columns the start prompt uses at col 0 and 21 -- see the main loop
+ * below): the longer of the two languages' text fills less than this, so
+ * it's centered rather than left-anchored, and a shorter translation
+ * doesn't end up hugging one side. */
 #define START_PROMPT_FIELD_WIDTH 20 /* EN "PRESS SPACE TO START" (20) > FR "APPUYEZ SUR ESPACE" (18) */
 
 /* Fruit ticker: the four fruit sprites drift left-to-right and wrap back in
@@ -150,30 +151,12 @@ static void scroll_tick(void) {
     draw_fruits(scroll_offset);
 }
 
-/* Marquee border: a row of CHAR_BULB tiles across the top and bottom edges,
- * color-cycled through the same four fruit colors bigfont_print() already
- * uses for the title letters (see sprites.h) so the palette reads as one
- * consistent set rather than an unrelated new one. The two rows chase in
- * opposite directions (top rightward, bottom leftward, both driven by the
- * same phase) purely by indexing the palette from opposite ends of the row
- * -- an arcade-cabinet "running lights" effect for the price of one extra
- * screen_put() pair per column per tick, no extra character codes or timer
- * needed beyond the phase counter the caller already advances once per
- * ANIM_JIFFIES tick (see title_screen_run()). */
-static const unsigned char MARQUEE_PALETTE[4] = {
-    APPLE_COLOR, CARROT_COLOR, GRAPES_COLOR, PEPPER_COLOR,
-};
-
-static void draw_marquee(unsigned char phase) {
-    unsigned char col;
-
-    for (col = 0; col < SCREEN_COLS; col++) {
-        screen_put(MARQUEE_ROW_TOP, col, CHAR_BULB,
-                   MARQUEE_PALETTE[(unsigned char)((col + phase) % 4)]);
-        screen_put(MARQUEE_ROW_BOTTOM, col, CHAR_BULB,
-                   MARQUEE_PALETTE[(unsigned char)((SCREEN_COLS - 1 - col + phase) % 4)]);
-    }
-}
+/* Marquee border: a row of CHAR_BULB tiles across the top and bottom edges
+ * (MARQUEE_ROW_TOP/BOTTOM, which are just SCREEN_ROWS' first/last row --
+ * see decor_draw_marquee()'s own doc comment). Moved into decor.c so the
+ * help screen can reuse the exact same border (see help.c) instead of
+ * duplicating this loop -- title.c just advances the shared phase counter
+ * once per ANIM_JIFFIES tick and calls it (see title_screen_run()). */
 
 /* Starfield: a fixed scatter of CHAR_STAR tiles filling the otherwise empty
  * background rows (between the title/ticker/icon rows above -- picked to
@@ -199,17 +182,69 @@ static void update_mute_indicator(void) {
                        MUSIC_OFF_FIELD_WIDTH);
 }
 
-/* Redraws every language-dependent static line in its current language --
+/* Redraws the language-dependent help hint in its current language,
+ * centered the same way draw_start_prompt() below centers its own text --
  * called once from draw_static() and again, immediately, whenever L toggles
  * the language (see wait_jiffies_or_space() below) so the switch is visible
  * right away rather than waiting for the next unrelated redraw of that
- * line. */
-static void draw_controls_hint(void) {
-    font_print_padded(CONTROLS_ROW, 1, lang_controls_hint(), COLOR_CYAN, CONTROLS_FIELD_WIDTH);
+ * line. Points at the dedicated help screen (F1, see help.c) rather than
+ * spelling out every control here -- see HELP_HINT_ROW's comment above. */
+static void draw_help_hint(void) {
+    const char *hint = lang_help_hint();
+    unsigned char hint_len = (unsigned char)strlen(hint);
+
+    font_print_padded(HELP_HINT_ROW, 1, "", COLOR_BLACK, START_PROMPT_FIELD_WIDTH);
+    font_print(HELP_HINT_ROW, 1 + (START_PROMPT_FIELD_WIDTH - hint_len) / 2, hint, COLOR_CYAN);
 }
 
-static void draw_mute_hint(void) {
-    font_print_padded(MUTE_HINT_ROW, 5, lang_mute_hint(), COLOR_CYAN, MUTE_HINT_FIELD_WIDTH);
+/* Everything that's drawn once and never changes again: the marquee border
+ * and starfield (their own animation only recolors these same cells, see
+ * decor_draw_marquee()/starfield_draw_all() and the main loop below), title,
+ * the four fruit sprites at their starting ticker position (they then
+ * scroll AND animate in place -- see scroll_tick() and CLAUDE.md, "movement
+ * vs. animation"), and the help hint. Only the start prompt blinks and is
+ * redrawn separately (see draw_start_prompt() below). Also re-run whenever
+ * F1's help-screen excursion returns (see wait_jiffies_or_space() below),
+ * since that screen overwrites the whole display. */
+static void draw_static(void) {
+    decor_draw_marquee(0);
+    starfield_draw_all(0);
+
+    bigfont_print(TITLE_ROW, 4, "FRUIT INVADERS");
+
+    draw_fruits(scroll_offset);
+
+    draw_help_hint();
+}
+
+/* Draws the blinking "PRESS SPACE TO START" prompt and its two framing
+ * arrows at the given blink phase -- called from title_screen_run()'s main
+ * loop, and also from wait_jiffies_or_space() below once, right after F1's
+ * help-screen excursion redraws everything else, instead of leaving this
+ * row blank for the rest of the current ANIM_JIFFIES window
+ * (help_screen_run() clears the whole screen; draw_static() puts everything
+ * else back but never touches this row itself, see its own comment). */
+static void draw_start_prompt(unsigned char blink) {
+    const char *prompt = lang_start_prompt();
+    unsigned char prompt_len = (unsigned char)strlen(prompt);
+
+    /* Centered within the field (cols 1-20, see START_PROMPT_FIELD_WIDTH)
+     * rather than left-anchored -- EN fills the field so this is a no-op
+     * offset for it, but FR is shorter and would otherwise hug the left
+     * arrow. The field is blanked in full first (font_print_padded with an
+     * empty string) since the centered column itself shifts with the
+     * string's length -- drawing the new text alone wouldn't clear whatever
+     * the previous language's differently-positioned text left outside its
+     * own span. */
+    font_print_padded(START_ROW, 1, "", COLOR_BLACK, START_PROMPT_FIELD_WIDTH);
+    font_print(START_ROW, 1 + (START_PROMPT_FIELD_WIDTH - prompt_len) / 2, prompt,
+               blink ? COLOR_WHITE : COLOR_BLACK);
+    /* Chevrons framing the prompt, blinking in lockstep with it -- point
+     * inward (right-pointing on the left, left-pointing on the right) so
+     * they read as bracketing the text rather than as a scroll/move
+     * affordance. */
+    screen_put(START_ROW, 0, CHAR_ARROW_R, blink ? SHOT_COLOR : COLOR_BLACK);
+    screen_put(START_ROW, 21, CHAR_ARROW_L, blink ? SHOT_COLOR : COLOR_BLACK);
 }
 
 /* Waits up to n jiffies, checking the keyboard buffer on every pass of the
@@ -224,7 +259,14 @@ static void draw_mute_hint(void) {
  * function). Also ticks the fruit ticker scroll (see scroll_tick() above)
  * for the same reason -- its own SCROLL_STEP_JIFFIES pace is finer than
  * ANIM_JIFFIES, so it needs to be driven from here rather than once per
- * outer loop iteration. */
+ * outer loop iteration. Also handles F1: hands off to the help screen
+ * (help_screen_run(), which blocks until F1 is pressed again there -- see
+ * help.c) and, once it returns, redraws everything this screen owns, since
+ * the help screen has overwritten the whole display in the meantime (same
+ * reasoning as run_countdown()/show_lose_screen() being blocking sub-screens
+ * in game.c). Doesn't stop or restart the title tune for this excursion --
+ * only Space does that (see title_screen_run()) -- help_screen_run() ticks
+ * it right alongside its own loop so it keeps playing underneath. */
 static unsigned char wait_jiffies_or_space(unsigned char n) {
     unsigned char start = *JIFFY_LOW;
     unsigned char key;
@@ -242,31 +284,29 @@ static unsigned char wait_jiffies_or_space(unsigned char n) {
         }
         if (key == 'L') {
             lang_toggle();
-            draw_controls_hint();
-            draw_mute_hint();
+            draw_help_hint();
             update_mute_indicator();
+        }
+        if (key == CH_F1) {
+            help_screen_run();
+            /* help_screen_run() leaves its own content (control list,
+             * section headers, back prompt) on screen -- its row layout
+             * doesn't line up with this screen's, so draw_static() alone
+             * would leave stray glyphs wherever help.c drew on a row this
+             * screen doesn't otherwise redraw (confirmed by hand in VICE:
+             * without this clear, e.g. help's "TIR"/"RETOUR" left a
+             * trailing letter past the end of this screen's shorter
+             * "F1: AIDE" hint on the same row). Clear first, same as
+             * main()'s own screen_clear() before every title_screen_run()
+             * call, since this mid-loop redraw doesn't get that for free. */
+            screen_clear();
+            draw_static();
+            update_mute_indicator();
+            draw_start_prompt(1);
+            start = *JIFFY_LOW; /* restart this wait's own window fresh from now */
         }
     }
     return 0;
-}
-
-/* Everything that's drawn once and never changes again: the marquee border
- * and starfield (their own animation only recolors these same cells, see
- * draw_marquee()/starfield_draw_all() and the main loop below), title, the four
- * fruit sprites at their starting ticker position (they then scroll AND
- * animate in place -- see scroll_tick() and CLAUDE.md, "movement vs.
- * animation"), and the controls reminder. Only the start prompt blinks and
- * is redrawn from the main loop below. */
-static void draw_static(void) {
-    draw_marquee(0);
-    starfield_draw_all(0);
-
-    bigfont_print(TITLE_ROW, 4, "FRUIT INVADERS");
-
-    draw_fruits(scroll_offset);
-
-    draw_controls_hint();
-    draw_mute_hint();
 }
 
 void title_screen_run(void) {
@@ -294,31 +334,10 @@ void title_screen_run(void) {
         sprites_set_pepper_frame(frame);
 
         marquee_phase = (unsigned char)((marquee_phase + 1) % 4);
-        draw_marquee(marquee_phase);
+        decor_draw_marquee(marquee_phase);
 
         blink ^= 1;
         starfield_draw_all(blink);
-        {
-            const char *prompt = lang_start_prompt();
-            unsigned char prompt_len = (unsigned char)strlen(prompt);
-            /* Centered within the field (cols 1-20, see
-             * START_PROMPT_FIELD_WIDTH) rather than left-anchored -- EN
-             * fills the field so this is a no-op offset for it, but FR is
-             * shorter and would otherwise hug the left arrow. The field is
-             * blanked in full first (font_print_padded with an empty
-             * string) since the centered column itself shifts with the
-             * string's length -- drawing the new text alone wouldn't clear
-             * whatever the previous language's differently-positioned text
-             * left outside its own span. */
-            font_print_padded(START_ROW, 1, "", COLOR_BLACK, START_PROMPT_FIELD_WIDTH);
-            font_print(START_ROW, 1 + (START_PROMPT_FIELD_WIDTH - prompt_len) / 2, prompt,
-                       blink ? COLOR_WHITE : COLOR_BLACK);
-        }
-        /* Chevrons framing the prompt, blinking in lockstep with it --
-         * point inward (right-pointing on the left, left-pointing on the
-         * right) so they read as bracketing the text rather than as a
-         * scroll/move affordance. */
-        screen_put(START_ROW, 0, CHAR_ARROW_R, blink ? SHOT_COLOR : COLOR_BLACK);
-        screen_put(START_ROW, 21, CHAR_ARROW_L, blink ? SHOT_COLOR : COLOR_BLACK);
+        draw_start_prompt(blink);
     }
 }

@@ -191,21 +191,37 @@ single cell is too small to read as a fruit shape.
 
 ## Controls
 
+Grouped below by which screen each control is actually live on — nothing
+here works on every screen at once (see the in-game help screen, which
+lists this same breakdown for the player under its own "title screen"/"in
+game" headings — "Help screen" below).
+
+Title screen only:
+- `M`: toggle background music mute
+- `L`: toggle the UI language between English and French (see
+  [src/gameplay/lang.c](src/gameplay/lang.c)/`lang.h` — the game screen's
+  own text (HUD, lose screen) renders in whichever language was last
+  selected, but has no control of its own to change it, and neither did the
+  title screen's controls reminder before it was replaced by the help
+  screen — see below). The game starts in English every run. The game's
+  name ("FRUIT INVADERS", drawn with bigfont.c) is never translated. Also
+  works on the help screen (see "Help screen" below) since that screen is
+  reached from here and shares the same language state.
+- `F1`: open the help screen (see "Help screen" below); pressing `F1` again
+  there returns here.
+
+In game only:
 - `S`: move left
 - `D`: move right
 - `Space`: fire
-- `M`: toggle background music mute (title screen only)
-- `L`: toggle the UI language between English and French (title screen only,
-  see [src/gameplay/lang.c](src/gameplay/lang.c)/`lang.h` — the game screen's
-  own text (HUD, lose screen) renders in whichever language was last
-  selected, but has no control of its own to change it). The game starts in
-  English every run. The game's name ("FRUIT INVADERS", drawn with
-  bigfont.c) is never translated.
-- `P`: pause / resume (game screen only, at any point — a silent freeze with
-  no on-screen indicator, and deliberately not advertised on the title
-  screen's controls reminder)
-- `H`: return to the title screen (game screen only, at any point — a
-  debug/testing shortcut, not an intended player-facing control)
+- `P`: pause / resume, at any point — a silent freeze with no on-screen
+  indicator. Listed on the help screen like every other control (see
+  below), unlike before the help screen existed, when it was deliberately
+  left off the title screen's old text-only controls reminder.
+- `H`: return to the title screen, at any point — a debug/testing shortcut,
+  not an intended player-facing control, but likewise listed plainly on the
+  help screen (the user explicitly asked for `H` and `P` to be included
+  there, unlike their previous "not advertised" treatment).
 
 ## Title screen
 
@@ -219,9 +235,12 @@ text-rendering-related. The starfield's position table and twinkle logic
 (only the `CHAR_STAR` bitmap itself, not its placement) have since moved out
 into their own module, [src/graphics/starfield.c](src/graphics/starfield.c)/
 `starfield.h` (see the starfield bullet below and "Current project state"),
-since the game screen now reuses the same starfield behind gameplay — every
-other decor.c tile (bulb marquee, arrows) stays title-only, title.c their
-only caller:
+since the game screen now reuses the same starfield behind gameplay. The
+marquee border itself (`decor_draw_marquee()`) has similarly moved out of
+title.c and into decor.c, since the help screen (see "Help screen" below)
+reuses the exact same border too — every other decor.c tile (the arrow
+tiles) stays shared between title.c and help.c the same way, neither one
+its sole owner any more:
 - the game's name, **FRUIT INVADERS**, in a dedicated 1x2-cell "big" font
   (see [src/graphics/bigfont.c](src/graphics/bigfont.c), distinct from the
   regular 8x8 font used for body text) — deliberately not the ship or a
@@ -248,16 +267,27 @@ only caller:
 - the four fruit/vegetable sprites as an infinite horizontal ticker
   (scrolling across the full screen width and wrapping back in from the
   left), wobble-animated in place independently of the scroll;
-- a reminder of the controls (`S`/`D` to move, `Space` to fire, `M` to
-  toggle music) — a first pass replaced this with icon rows (reduced-ship/
-  shot/note tiles next to the key names) but was reverted at the user's
-  request: the plain sentences read more clearly than the pictograms did,
-  so this stays text while the border/starfield above stayed graphical.
-  Both lines are drawn from lang.c (see above) in whichever language is
-  current, redrawn in place the moment `L` toggles it — `L` itself isn't
-  called out in this reminder (same "not advertised" treatment as `H`/`P`,
-  see "Controls", though for a different reason: discoverability of a
-  language switch felt less essential than keeping this reminder short);
+- a one-line `F1: HELP` hint, centered the same way the start prompt below
+  it is (drawn from lang.c, redrawn in place the moment `L` toggles it)
+  instead of spelling out every control directly — earlier versions did
+  that in full (first an icon row, reverted at the user's request since the
+  plain sentences read more clearly than the pictograms did; then two full
+  sentences of plain text), but once the dedicated help screen took over
+  listing every control (see "Help screen" below), repeating them here too
+  was redundant. The colon in `F1: HELP`/`F1: AIDE` deliberately has no
+  space before it (only after) — an initial `F1 : HELP` (a space on both
+  sides) was user-reported as reading like two full blank character-widths
+  around the colon, since the colon glyph itself is already a sparse,
+  narrow mark within its cell (see font.c) and each glyph already carries
+  its own blank trailing margin (see "Sprite storage format"'s font
+  discussion) — the game screen's `LEVEL:NN` HUD label (see game.c) already
+  used the no-space-before convention, so this just brings the two in line.
+  `F1` hands off to `help_screen_run()` (see below), which blocks until
+  `F1` is pressed again there; on return, title.c clears the screen and
+  redraws everything itself (its own row layout doesn't match the help
+  screen's, so without an explicit clear stray glyphs from the help
+  screen's content would linger on whichever rows title.c doesn't otherwise
+  redraw — confirmed by hand in VICE before adding the clear);
 - a looping background tune (see `sound_music_start()` /
   `sound_music_tick()` / `sound_music_stop()` in
   [src/sound/sound.c](src/sound/sound.c)), mutable with `M` (a
@@ -265,6 +295,79 @@ only caller:
   Space is pressed;
 - a blinking "PRESS SPACE TO START" prompt, framed by two inward-pointing
   arrow tiles that blink in lockstep with it.
+
+## Help screen
+
+Implemented in [src/gameplay/help.c](src/gameplay/help.c)/`help.h`, reached
+from the title screen with `F1` and returning to it with `F1` again (see
+"Controls" and the title screen's `F1: HELP` hint above) — user-requested,
+so a player doesn't have to already know the controls (previously spelled
+out directly on the title screen) to find out what they are. Same chrome as
+the title screen and sharing several of the same helpers (see the
+`decor_draw_marquee()` note above and `starfield_twinkle_masked()` below),
+but no fruit ticker — in its place, a full list of every control, grouped
+under the same two headings used in "Controls" above ("title screen only"
+translated to `TITLE SCREEN`/`ECRAN TITRE`, "in game" to
+`IN GAME`/`EN PARTIE`) so a player can see at a glance which screen each key
+actually does something on:
+- the game's name, **FRUIT INVADERS**, drawn with the exact same
+  `bigfont_print()` call and position as the title screen — included since
+  it comfortably fits above this screen's control list too; a screen dense
+  enough that it stopped fitting would drop this first rather than crowd
+  the control list, though that hasn't happened yet;
+- the same chasing-light marquee border as the title screen
+  (`decor_draw_marquee()`, see above);
+- the same twinkling starfield as the title screen, but unlike the title
+  screen, this screen's control list is dense enough to cross a few of the
+  shared starfield's fixed positions (see
+  [src/graphics/starfield.c](src/graphics/starfield.c)). Handled the same
+  way the game screen already handles its own sprites roaming over the
+  field (see game.c's "Starfield background"): the starfield is drawn once
+  as background before any text, so text simply overwrites — permanently —
+  whichever star cells it lands on, and the per-tick twinkle only ever
+  recolors a cell still actually showing `CHAR_STAR` right now. That
+  recolor-if-still-a-star logic used to be duplicated in game.c's
+  `star_twinkle()`; now that this screen needs the identical check, it's
+  been pulled out into starfield.c/h as `starfield_twinkle_masked()`, and
+  game.c's `star_twinkle()` is a thin wrapper around it — the title screen
+  still uses the simpler unconditional `starfield_draw_all()` instead, since
+  it never has anything drawn over a star row;
+- two labeled sections, each one control per line (key, then what it does,
+  in whichever language is current): `TITLE SCREEN`/`ECRAN TITRE` lists `L`
+  and `M`, plus `F1` itself; `IN GAME`/`EN PARTIE` lists `S`/`D`, `Space`,
+  `P` and `H` — the same grouping as "Controls" above, so this screen and
+  that section of CLAUDE.md stay in sync;
+- a blinking `F1: BACK`/`F1: RETOUR` prompt at the bottom, centered within
+  the same cols-1-20 field as the title screen's start prompt (an initial
+  version centered it within a field only as wide as the text itself,
+  which read as left-hugging the arrow rather than centered on the screen —
+  user-reported, fixed to match the start prompt's own field width) and
+  framed by the same two arrow tiles, returning to the title screen when
+  `F1` is pressed again. Same no-space-before-the-colon convention as the
+  title screen's `F1: HELP` hint above, for the same reason.
+
+`L` also works here (user-requested), toggling the same global language
+state as the title screen (see lang.c) and redrawing every
+language-dependent line on this screen in place, exactly like the title
+screen's own `L` handling. The title tune keeps playing underneath this
+screen exactly as it does on the title screen — neither screen starts or
+stops it for this excursion (see `sound_music_tick()` calls in both
+title.c's and help.c's own wait loops); only pressing Space back on the
+title screen does that.
+
+Verified in VICE via the `vice` MCP server (`vice_keyboard_petscii` to feed
+`F1`'s PETSCII code, 133, directly into the KERNAL keyboard buffer —
+`vice_keyboard_key_press` was tried first and, consistent with the existing
+gotcha below for regular keys, didn't register either): reading back the
+screen matrix (`$1000`) and decoding it against the character-code tables
+in font.c/bigfont.c/decor.c confirmed the help screen's exact intended
+layout (section headers, all seven control lines, framed back prompt) on
+first entry; toggling `L` there and reading the matrix again confirmed
+every line retranslated in place with no leftover glyphs; and pressing `F1`
+again initially reproduced stray leftover text on the rows the title screen
+doesn't itself redraw (exactly the bug the explicit `screen_clear()`
+mentioned in the title screen's `F1: HELP` bullet above was added to fix)
+— re-verified clean after that fix.
 
 ## Levels
 
@@ -380,17 +483,23 @@ text, in both languages -- see [src/gameplay/lang.c](src/gameplay/lang.c)/
 to a shorter translation never leaves the previous, longer string's
 trailing glyphs on screen -- used by title.c's language-dependent lines);
 lang.c/lang.h hold the current UI language (English/French, toggled by `L`
-on the title screen only -- see "Controls") and one accessor per
-language-dependent string, called from both title.c and game.c (the game
-screen renders whichever language was last selected but never changes it
-itself); [src/graphics/bigfont.c](src/graphics/bigfont.c)
-is the separate 1x2-cell "big" font used only for the title screen's game
+on the title screen or the help screen -- see "Controls") and one accessor
+per language-dependent string, called from title.c, help.c and game.c (the
+game screen renders whichever language was last selected but never changes
+it itself); [src/graphics/bigfont.c](src/graphics/bigfont.c)
+is the separate 1x2-cell "big" font used for the title/help screens' game
 name (also sharing that character set); [src/graphics/decor.c](src/graphics/decor.c)
-holds the title screen's marquee/star/arrow tile bitmaps on top of it (also
-sharing that character set); [src/graphics/starfield.c](src/graphics/starfield.c)
+holds the marquee/star/arrow tile bitmaps on top of it, plus
+`decor_draw_marquee()` itself (also sharing that character set), shared by
+title.c and help.c (see "Title screen" and "Help screen");
+[src/graphics/starfield.c](src/graphics/starfield.c)
 holds the shared star position table and twinkle-color logic built on
-decor.c's `CHAR_STAR` bitmap, used by both title.c and game.c (see "Title
-screen" and game.c's own starfield below); [src/graphics/screen.c](src/graphics/screen.c)
+decor.c's `CHAR_STAR` bitmap, used by title.c, help.c and game.c (see
+"Title screen", "Help screen" and game.c's own starfield below) --
+`starfield_draw_all()` for the title screen (which never draws anything
+over a star row) and `starfield_twinkle_masked()` for help.c and game.c
+(whose content does, and so only recolors a cell still actually showing a
+star); [src/graphics/screen.c](src/graphics/screen.c)
 writes the screen matrix and color RAM, and reads a cell's character code
 back (`screen_get()`, used by game.c to check whether a star is still
 uncovered before recoloring it — see below). [src/gameplay/title.c](src/gameplay/title.c)
@@ -399,7 +508,11 @@ is the title screen (see "Title screen" for the full breakdown), plus a looping 
 [src/sound/sound.c](src/sound/sound.c)) that starts as the screen is drawn
 and stops the moment Space is pressed; it returns when Space is pressed
 (polled via the KERNAL `GETIN` call, `cbm_k_getin()`, with no dedicated
-input module yet — see "Still to define/do" below).
+input module yet — see "Still to define/do" below). `F1` instead hands off
+to [src/gameplay/help.c](src/gameplay/help.c)'s `help_screen_run()` (see
+"Help screen" for the full breakdown) without stopping the tune, and
+redraws everything on return (see the title screen's `F1: HELP` bullet
+above for why that redraw needs an explicit `screen_clear()` first).
 [src/gameplay/game.c](src/gameplay/game.c) is the real gameplay screen: HUD
 (lives icons left, "LEVEL:NN"/"NIVEAU:NN" right, built from lang.c's current
 label -- see above), ship movement (`S`/`D`, clamped to the
@@ -512,7 +625,8 @@ in VICE via the `vice` MCP server (`vice_keyboard_type`, not
 ```bash
 /Users/aboudou/Developer/VIC-20/llvm-mos/bin/mos-vic20-clang \
     -Os -T link/vic20-fruit-invaders.ld -o game.prg \
-    src/main.c src/gameplay/title.c src/gameplay/game.c src/gameplay/lang.c \
+    src/main.c src/gameplay/title.c src/gameplay/help.c src/gameplay/game.c \
+    src/gameplay/lang.c \
     src/graphics/sprites.c src/graphics/screen.c src/graphics/font.c \
     src/graphics/bigfont.c src/graphics/decor.c src/graphics/starfield.c \
     src/graphics/charmem.c src/sound/sound.c

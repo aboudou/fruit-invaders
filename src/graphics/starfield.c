@@ -33,6 +33,17 @@ void starfield_draw_all(unsigned char blink) {
     }
 }
 
+void starfield_twinkle_masked(unsigned char blink) {
+    unsigned char i;
+
+    for (i = 0; i < STARFIELD_COUNT; i++) {
+        if (screen_get(STARFIELD_ROW[i], STARFIELD_COL[i]) == CHAR_STAR) {
+            screen_put(STARFIELD_ROW[i], STARFIELD_COL[i], CHAR_STAR,
+                       starfield_twinkle_color(i, blink));
+        }
+    }
+}
+
 unsigned char starfield_lookup(unsigned char row, unsigned char col, unsigned char blink,
                                 unsigned char *out_color) {
     unsigned char i;

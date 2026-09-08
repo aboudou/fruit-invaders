@@ -76,15 +76,8 @@ static void bg_clear_pair(unsigned char row, unsigned char col) {
 }
 
 static void star_twinkle(void) {
-    unsigned char i, color;
-
     star_blink ^= 1;
-    for (i = 0; i < STARFIELD_COUNT; i++) {
-        if (screen_get(STARFIELD_ROW[i], STARFIELD_COL[i]) == CHAR_STAR) {
-            color = starfield_twinkle_color(i, star_blink);
-            screen_put(STARFIELD_ROW[i], STARFIELD_COL[i], CHAR_STAR, color);
-        }
-    }
+    starfield_twinkle_masked(star_blink);
 }
 
 /* Fruit grid: fills the top of the game zone with a formation of 2x2 fruit

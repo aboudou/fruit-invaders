@@ -1,6 +1,8 @@
 #include "decor.h"
 
 #include "charmem.h"
+#include "screen.h"
+#include "sprites.h" /* APPLE_COLOR/CARROT_COLOR/GRAPES_COLOR/PEPPER_COLOR */
 
 /* Marquee light: a solid disc, filling most of the cell so a full row of
  * them reads as a string of bulbs rather than a row of dots. Authored
@@ -34,4 +36,21 @@ void decor_load(void) {
     charmem_load(CHAR_STAR, star, 8);
     charmem_load(CHAR_ARROW_L, arrow_l, 8);
     charmem_load(CHAR_ARROW_R, arrow_r, 8);
+}
+
+/* Same four colors bigfont_print() cycles the title lettering through (see
+ * sprites.h), so the marquee's palette visibly ties back to the rest of the
+ * screen instead of introducing an unrelated one. */
+static const unsigned char MARQUEE_PALETTE[4] = {
+    APPLE_COLOR, CARROT_COLOR, GRAPES_COLOR, PEPPER_COLOR,
+};
+
+void decor_draw_marquee(unsigned char phase) {
+    unsigned char col;
+
+    for (col = 0; col < SCREEN_COLS; col++) {
+        screen_put(0, col, CHAR_BULB, MARQUEE_PALETTE[(unsigned char)((col + phase) % 4)]);
+        screen_put(SCREEN_ROWS - 1, col, CHAR_BULB,
+                   MARQUEE_PALETTE[(unsigned char)((SCREEN_COLS - 1 - col + phase) % 4)]);
+    }
 }
