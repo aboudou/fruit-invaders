@@ -195,6 +195,9 @@ single cell is too small to read as a fruit shape.
 - `D`: move right
 - `Space`: fire
 - `M`: toggle background music mute (title screen only)
+- `P`: pause / resume (game screen only, at any point — a silent freeze with
+  no on-screen indicator, and deliberately not advertised on the title
+  screen's controls reminder)
 - `H`: return to the title screen (game screen only, at any point — a
   debug/testing shortcut, not an intended player-facing control)
 

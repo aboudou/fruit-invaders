@@ -668,6 +668,55 @@ static void advance_level(unsigned char *level, unsigned char *lives,
     grid_draw(*grid_col_offset, *grid_row_offset, *active_rows);
 }
 
+/* Freezes the game until P is pressed again -- a gameplay-only toggle, not
+ * mentioned on the title screen's controls reminder (user-requested; H's
+ * "debug shortcut" caveat in CLAUDE.md is a separate thing) and shown with
+ * no on-screen indicator (also user-requested) -- just a silent freeze. H
+ * still works here too (same "at any point" shortcut as the rest of the game
+ * screen); the caller checks the return value and returns from
+ * game_screen_run() immediately if so.
+ *
+ * The jiffy clock keeps advancing during the freeze (it's KERNAL-driven, not
+ * stoppable from here), so every paced timer's own "last_*_jiffy" checkpoint
+ * -- the three passed in by pointer, plus the module-level per-shooter
+ * arrays -- is nudged forward by the paused duration before returning;
+ * otherwise every timer would see a huge elapsed gap the instant play
+ * resumes (the shot leaping several rows at once, every shooter firing back
+ * to back, the marching grid jumping ahead). This is exact even for a pause
+ * lasting longer than 256 jiffies (~5s): shifting both "now" (by the KERNAL
+ * clock actually running) and "last" (by the same `elapsed` byte) by the
+ * real elapsed time leaves their unsigned-char difference -- what every
+ * caller's "(now - last) >= period" check actually reads -- exactly what it
+ * was the instant pause_screen_run() was entered, regardless of how long the
+ * pause lasted or how many times the 1-byte clock wrapped during it. */
+static unsigned char pause_screen_run(unsigned char *last_jiffy, unsigned char *last_grid_jiffy,
+                                       unsigned char *last_anim_jiffy) {
+    unsigned char pause_start = *JIFFY_LOW;
+    unsigned char elapsed;
+    unsigned char key;
+    unsigned char i;
+
+    for (;;) {
+        key = cbm_k_getin();
+        if (key == 'H') {
+            return 1;
+        }
+        if (key == 'P') {
+            break;
+        }
+    }
+
+    elapsed = (unsigned char)(*JIFFY_LOW - pause_start);
+    *last_jiffy += elapsed;
+    *last_grid_jiffy += elapsed;
+    *last_anim_jiffy += elapsed;
+    for (i = 0; i < shooter_count; i++) {
+        shooter_last_fire_jiffy[i] += elapsed;
+        shooter_last_step_jiffy[i] += elapsed;
+    }
+    return 0;
+}
+
 void game_screen_run(void) {
     unsigned char ship_col = SHIP_COL_CENTER;
     unsigned char shot_active = 0;
@@ -720,6 +769,12 @@ void game_screen_run(void) {
         key = cbm_k_getin();
         if (key == 'H') {
             return;
+        }
+        if (key == 'P') {
+            if (pause_screen_run(&last_jiffy, &last_grid_jiffy, &last_anim_jiffy)) {
+                return;
+            }
+            continue;
         }
         if (key == 'S' && ship_col > SHIP_COL_MIN) {
             screen_clear_quad(SHIP_ROW, ship_col);
