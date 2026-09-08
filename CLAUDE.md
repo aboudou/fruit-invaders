@@ -209,7 +209,13 @@ graphical rather than a flat black background — new pseudo-bitmap tiles for
 this (chasing-light bulb, star, left/right arrow) live in
 [src/graphics/decor.c](src/graphics/decor.c)/`decor.h`, a small module
 separate from sprites.c/font.c/bigfont.c since none of it is gameplay- or
-text-rendering-related, title.c is its only caller:
+text-rendering-related. The starfield's position table and twinkle logic
+(only the `CHAR_STAR` bitmap itself, not its placement) have since moved out
+into their own module, [src/graphics/starfield.c](src/graphics/starfield.c)/
+`starfield.h` (see the starfield bullet below and "Current project state"),
+since the game screen now reuses the same starfield behind gameplay — every
+other decor.c tile (bulb marquee, arrows) stays title-only, title.c their
+only caller:
 - the game's name, **FRUIT INVADERS**, in a dedicated 1x2-cell "big" font
   (see [src/graphics/bigfont.c](src/graphics/bigfont.c), distinct from the
   regular 8x8 font used for body text) — deliberately not the ship or a
@@ -226,7 +232,13 @@ text-rendering-related, title.c is its only caller:
   (never goes fully dark, so the field doesn't look like it's vanishing)
   on the same tick as the start prompt's blink, XORed with the star's own
   index so only about half the field swaps on any given tick instead of
-  the whole thing flipping in lockstep;
+  the whole thing flipping in lockstep. The position table and twinkle-color
+  logic live in starfield.c/h (`starfield_draw_all()`), not decor.c, so the
+  same look is shared with the game screen's own starfield behind gameplay
+  (see game.c's "Starfield background" and "Current project state") — the
+  title screen just never has anything drawn over a star cell, so it only
+  ever needs the unconditional "redraw every star" call, unlike the game
+  screen;
 - the four fruit/vegetable sprites as an infinite horizontal ticker
   (scrolling across the full screen width and wrapping back in from the
   left), wobble-animated in place independently of the scroll;
@@ -354,9 +366,14 @@ uppercase font (only the letters/`/` actually used in title/game screen
 text) sharing the same character set; [src/graphics/bigfont.c](src/graphics/bigfont.c)
 is the separate 1x2-cell "big" font used only for the title screen's game
 name (also sharing that character set); [src/graphics/decor.c](src/graphics/decor.c)
-holds the title screen's marquee/star/arrow tiles on top of it (also
-sharing that character set); [src/graphics/screen.c](src/graphics/screen.c)
-writes the screen matrix and color RAM. [src/gameplay/title.c](src/gameplay/title.c)
+holds the title screen's marquee/star/arrow tile bitmaps on top of it (also
+sharing that character set); [src/graphics/starfield.c](src/graphics/starfield.c)
+holds the shared star position table and twinkle-color logic built on
+decor.c's `CHAR_STAR` bitmap, used by both title.c and game.c (see "Title
+screen" and game.c's own starfield below); [src/graphics/screen.c](src/graphics/screen.c)
+writes the screen matrix and color RAM, and reads a cell's character code
+back (`screen_get()`, used by game.c to check whether a star is still
+uncovered before recoloring it — see below). [src/gameplay/title.c](src/gameplay/title.c)
 is the title screen (see "Title screen" for the full breakdown), plus a looping tune (see
 `sound_music_start()`/`sound_music_tick()`/`sound_music_stop()` in
 [src/sound/sound.c](src/sound/sound.c)) that starts as the screen is drawn
@@ -386,7 +403,31 @@ fruit's position; when every fruit is gone (by shot or by row-loss, however
 the formation empties out), the level counter advances and a fresh full
 formation spawns at the starting position, one notch faster and with one
 more enemy shooter than the level before, lives carried over except for
-the periodic bonus life (see `advance_level()` and "Levels").
+the periodic bonus life (see `advance_level()` and "Levels"). The same
+twinkling starfield used on the title screen (see starfield.c/h) also fills
+the background behind the grid/ship/shots here -- drawn once behind
+everything else right after the screen clears, then restored cell-by-cell
+wherever it's needed: unlike the title screen, this screen's sprites roam
+over the whole field, so there's no row that's permanently safe from being
+drawn over, and this text-mode engine has no automatic background/z-order
+restore (see CLAUDE.md, "Sprite storage format") -- every place a sprite's
+trail is erased (`grid_erase()`, ship movement, both player and enemy
+shots, the countdown digit, a killed fruit's cell) goes through
+`bg_clear_cell()`/`bg_clear_quad()`/`bg_clear_pair()` instead of a plain
+`screen_clear_quad()`/`screen_clear_pair()`, which restore whichever star
+(if any) was underneath instead of blanking to `CHAR_BLANK`. The twinkle
+tick (`star_twinkle()`) runs on the same `GRID_ANIM_JIFFIES` cadence as the
+fruit wobble, and only recolors a star cell that's still actually showing
+`CHAR_STAR` right now (`screen_get()`, see screen.c) -- so a star currently
+covered by the grid/ship/a shot is correctly left alone instead of being
+painted over whatever's really occupying that cell. Verified in VICE via
+the `vice` MCP server: after moving the ship away from its starting column
+(which sits exactly on one of the fixed star positions), the vacated
+screen-matrix cell read back `$5A` (`CHAR_STAR`), confirming the restore;
+the countdown-digit-sized wait between round-trips in this sandboxed VICE
+instance also reconfirmed the "runs much slower than real time, and keeps
+running between tool calls" gotcha below the hard way (a full 3-life
+game-over happened between two supposedly-adjacent memory reads).
 [src/sound/sound.c](src/sound/sound.c) is the sound
 module: three one-shot effects via the VIC-I's own sound generator
 (`$900A`-`$900E`, no VIA timers/IRQ needed -- see "Source code
@@ -449,8 +490,8 @@ in VICE via the `vice` MCP server (`vice_keyboard_type`, not
     -Os -T link/vic20-fruit-invaders.ld -o game.prg \
     src/main.c src/gameplay/title.c src/gameplay/game.c \
     src/graphics/sprites.c src/graphics/screen.c src/graphics/font.c \
-    src/graphics/bigfont.c src/graphics/decor.c src/graphics/charmem.c \
-    src/sound/sound.c
+    src/graphics/bigfont.c src/graphics/decor.c src/graphics/starfield.c \
+    src/graphics/charmem.c src/sound/sound.c
 ```
 
 **VICE MCP server gotcha**: `vice_keyboard_key_press` (matrix-level key emulation)

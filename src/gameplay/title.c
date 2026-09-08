@@ -5,6 +5,7 @@
 #include "../graphics/font.h"
 #include "../graphics/screen.h"
 #include "../graphics/sprites.h"
+#include "../graphics/starfield.h"
 #include "../sound/sound.h"
 
 #include <cbm.h> /* cbm_k_getin(): KERNAL keyboard-buffer read */
@@ -23,7 +24,7 @@
  * before the fruit ticker. Rows 0 and MARQUEE_ROW_BOTTOM (the top/bottom
  * edges) belong to the chasing-light border (see draw_marquee() below);
  * every other gap row not named here is background for the starfield (see
- * draw_stars()). CONTROLS_ROW/MUTE_HINT_ROW stay full sentences (see
+ * starfield_draw_all()). CONTROLS_ROW/MUTE_HINT_ROW stay full sentences (see
  * draw_static()) -- an icon-only version was tried and reverted, plain text
  * read more clearly. */
 #define TITLE_ROW           2
@@ -158,30 +159,16 @@ static void draw_marquee(unsigned char phase) {
 
 /* Starfield: a fixed scatter of CHAR_STAR tiles filling the otherwise empty
  * background rows (between the title/ticker/icon rows above -- picked to
- * avoid every row those already occupy, so this never overwrites them).
- * Twinkle is a per-star color swap between white and cyan rather than an
- * on/off blink, so the field never looks like it's vanishing -- driven by
- * XORing each star's own index with the caller's shared blink flag (the
- * same one the start prompt already toggles every ANIM_JIFFIES tick) so
- * roughly half the stars swap on any given tick and half swap on the next,
- * instead of the whole field flipping in lockstep. */
-#define STAR_COUNT 20
-
-static const unsigned char STAR_ROW[STAR_COUNT] = {
-    1, 1, 4, 4, 5, 6, 6, 9, 9, 10, 11, 11, 12, 12, 17, 17, 19, 20, 20, 21,
-};
-static const unsigned char STAR_COL[STAR_COUNT] = {
-    2, 19, 1, 20, 10, 3, 18, 2, 19, 10, 4, 17, 8, 13, 2, 20, 9, 3, 18, 10,
-};
-
-static void draw_stars(unsigned char blink) {
-    unsigned char i;
-
-    for (i = 0; i < STAR_COUNT; i++) {
-        screen_put(STAR_ROW[i], STAR_COL[i], CHAR_STAR,
-                   ((i ^ blink) & 1) ? COLOR_WHITE : COLOR_CYAN);
-    }
-}
+ * avoid every row those already occupy, so this never overwrites them). The
+ * position table and twinkle-color logic live in
+ * [starfield.c](../graphics/starfield.c)/starfield.h, shared with the game
+ * screen's own starfield (see game.c) so both use the same look. Twinkle is
+ * a per-star color swap between white and cyan rather than an on/off blink,
+ * so the field never looks like it's vanishing -- driven by XORing each
+ * star's own index with the caller's shared blink flag (the same one the
+ * start prompt already toggles every ANIM_JIFFIES tick) so roughly half the
+ * stars swap on any given tick and half swap on the next, instead of the
+ * whole field flipping in lockstep. */
 
 /* Shows or hides the "MUSIC OFF" indicator (see MUTE_INDICATOR_ROW) to
  * match the title tune's current mute state -- drawn in COLOR_BLACK
@@ -227,14 +214,14 @@ static unsigned char wait_jiffies_or_space(unsigned char n) {
 
 /* Everything that's drawn once and never changes again: the marquee border
  * and starfield (their own animation only recolors these same cells, see
- * draw_marquee()/draw_stars() and the main loop below), title, the four
+ * draw_marquee()/starfield_draw_all() and the main loop below), title, the four
  * fruit sprites at their starting ticker position (they then scroll AND
  * animate in place -- see scroll_tick() and CLAUDE.md, "movement vs.
  * animation"), and the controls reminder. Only the start prompt blinks and
  * is redrawn from the main loop below. */
 static void draw_static(void) {
     draw_marquee(0);
-    draw_stars(0);
+    starfield_draw_all(0);
 
     bigfont_print(TITLE_ROW, 4, "FRUIT INVADERS");
 
@@ -272,7 +259,7 @@ void title_screen_run(void) {
         draw_marquee(marquee_phase);
 
         blink ^= 1;
-        draw_stars(blink);
+        starfield_draw_all(blink);
         font_print(START_ROW, 1, "PRESS SPACE TO START", blink ? COLOR_WHITE : COLOR_BLACK);
         /* Chevrons framing the prompt, blinking in lockstep with it --
          * point inward (right-pointing on the left, left-pointing on the

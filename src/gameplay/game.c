@@ -1,8 +1,10 @@
 #include "game.h"
 
+#include "../graphics/decor.h" /* CHAR_STAR */
 #include "../graphics/font.h"
 #include "../graphics/screen.h"
 #include "../graphics/sprites.h"
+#include "../graphics/starfield.h"
 #include "../sound/sound.h"
 
 #include <cbm.h>    /* cbm_k_getin(): KERNAL keyboard-buffer read, also pulls in vic20.h's COLOR_* */
@@ -30,6 +32,58 @@
  * change between levels (harder pace, a different formation, ...) is left
  * for later (see CLAUDE.md, "Levels"). */
 #define STARTING_LEVEL 1
+
+/* Starfield background: a fixed scatter of twinkling stars behind the fruit
+ * grid/ship/shots (see starfield.c/h for the shared position table, also
+ * used by the title screen -- see CLAUDE.md, "Title screen"). Unlike the
+ * title screen, this screen's sprites roam over the whole field, so every
+ * place a sprite's trail is erased has to restore whichever star (if any)
+ * was underneath instead of blanking to CHAR_BLANK --
+ * bg_clear_cell()/bg_clear_quad()/bg_clear_pair() below stand in for a plain
+ * screen_clear_quad()/screen_clear_pair() call everywhere that would
+ * otherwise permanently erase a star. star_blink is this screen's own
+ * twinkle phase (reset to 0 each time game_screen_run() starts, see below),
+ * advanced on the same GRID_ANIM_JIFFIES tick that already drives the fruit
+ * wobble (see game_screen_run()'s main loop) -- star_twinkle() only
+ * recolors a cell that's still actually showing CHAR_STAR right now
+ * (screen_get(), see screen.h), so a star currently covered by the grid/
+ * ship/a shot is correctly left alone instead of being painted over
+ * whatever's really there. */
+static unsigned char star_blink;
+
+static void bg_clear_cell(unsigned char row, unsigned char col) {
+    unsigned char color;
+
+    if (starfield_lookup(row, col, star_blink, &color)) {
+        screen_put(row, col, CHAR_STAR, color);
+    } else {
+        screen_put(row, col, CHAR_BLANK, COLOR_BLACK);
+    }
+}
+
+static void bg_clear_quad(unsigned char row, unsigned char col) {
+    bg_clear_cell(row, col);
+    bg_clear_cell(row, (unsigned char)(col + 1));
+    bg_clear_cell((unsigned char)(row + 1), col);
+    bg_clear_cell((unsigned char)(row + 1), (unsigned char)(col + 1));
+}
+
+static void bg_clear_pair(unsigned char row, unsigned char col) {
+    bg_clear_cell(row, col);
+    bg_clear_cell(row, (unsigned char)(col + 1));
+}
+
+static void star_twinkle(void) {
+    unsigned char i, color;
+
+    star_blink ^= 1;
+    for (i = 0; i < STARFIELD_COUNT; i++) {
+        if (screen_get(STARFIELD_ROW[i], STARFIELD_COL[i]) == CHAR_STAR) {
+            color = starfield_twinkle_color(i, star_blink);
+            screen_put(STARFIELD_ROW[i], STARFIELD_COL[i], CHAR_STAR, color);
+        }
+    }
+}
 
 /* Fruit grid: fills the top of the game zone with a formation of 2x2 fruit
  * sprites, top/left-aligned, each one character apart from its neighbours
@@ -149,8 +203,8 @@ static void grid_erase(signed char col_offset, unsigned char row_offset,
     for (r = 0; r < active_rows; r++) {
         for (c = 0; c < GRID_COLS; c++) {
             if (fruit_alive[r][c]) {
-                screen_clear_quad(GRID_ROW_START + r * GRID_STEP + row_offset,
-                                   GRID_COL_START + c * GRID_STEP + col_offset);
+                bg_clear_quad(GRID_ROW_START + r * GRID_STEP + row_offset,
+                               GRID_COL_START + c * GRID_STEP + col_offset);
             }
         }
     }
@@ -347,7 +401,7 @@ static void shooters_select(unsigned char level) {
      * at 0, BSS-zeroed). */
     for (i = 0; i < shooter_count; i++) {
         if (shooter_shot_active[i] && shooter_shot_drawn[i]) {
-            screen_clear_pair(shooter_shot_row[i], shooter_shot_col[i]);
+            bg_clear_pair(shooter_shot_row[i], shooter_shot_col[i]);
         }
     }
 
@@ -421,7 +475,7 @@ static void run_countdown(void) {
             sprites_set_countdown_digit(count - 1);
         }
     }
-    screen_clear_quad(COUNTDOWN_ROW, COUNTDOWN_COL);
+    bg_clear_quad(COUNTDOWN_ROW, COUNTDOWN_COL);
     while (cbm_k_getin() != 0) {
         /* discard anything buffered during the countdown */
     }
@@ -467,7 +521,7 @@ static void explode_fruit(unsigned char r, unsigned char c,
     sprites_set_explosion_frame(1);
     wait_jiffies(EXPLOSION_JIFFIES);
     sound_stop();
-    screen_clear_quad(row, col);
+    bg_clear_quad(row, col);
 }
 
 #define FLASH_JIFFIES 8 /* ~160ms at 50Hz per flash phase */
@@ -589,7 +643,7 @@ static unsigned char enemy_shots_update(unsigned char *lives, unsigned char ship
         shooter_last_step_jiffy[i] = now;
 
         if (shooter_shot_drawn[i]) {
-            screen_clear_pair(shooter_shot_row[i], shooter_shot_col[i]);
+            bg_clear_pair(shooter_shot_row[i], shooter_shot_col[i]);
         }
 
         if (shooter_shot_row[i] >= SHIP_ROW) {
@@ -752,6 +806,8 @@ void game_screen_run(void) {
     unsigned char last_anim_jiffy;
 
     screen_clear();
+    star_blink = 0;
+    starfield_draw_all(star_blink);
     hud_draw_lives(lives);
     hud_draw_level(level);
     grid_reset_alive();
@@ -777,11 +833,11 @@ void game_screen_run(void) {
             continue;
         }
         if (key == 'S' && ship_col > SHIP_COL_MIN) {
-            screen_clear_quad(SHIP_ROW, ship_col);
+            bg_clear_quad(SHIP_ROW, ship_col);
             ship_col--;
             screen_put_quad(SHIP_ROW, ship_col, CHAR_SHIP_TL, SHIP_COLOR);
         } else if (key == 'D' && ship_col < SHIP_COL_MAX) {
-            screen_clear_quad(SHIP_ROW, ship_col);
+            bg_clear_quad(SHIP_ROW, ship_col);
             ship_col++;
             screen_put_quad(SHIP_ROW, ship_col, CHAR_SHIP_TL, SHIP_COLOR);
         } else if (key == ' ' && !shot_active) {
@@ -811,7 +867,7 @@ void game_screen_run(void) {
 
         if (shot_active && (unsigned char)(*JIFFY_LOW - last_jiffy) >= SHOT_STEP_JIFFIES) {
             last_jiffy = *JIFFY_LOW;
-            screen_clear_pair(shot_row, shot_col);
+            bg_clear_pair(shot_row, shot_col);
             if (shot_row == SHOT_TOP_ROW) {
                 shot_active = 0;
             } else {
@@ -842,6 +898,7 @@ void game_screen_run(void) {
             sprites_set_carrot_frame(anim_frame);
             sprites_set_grapes_frame(anim_frame);
             sprites_set_pepper_frame(anim_frame);
+            star_twinkle();
         }
 
         if (enemy_shots_update(&lives, ship_col, grid_col_offset, grid_row_offset,

@@ -32,6 +32,10 @@ void screen_put(unsigned char row, unsigned char col, unsigned char code,
     SCREEN_COLOR_RAM[offset] = color;
 }
 
+unsigned char screen_get(unsigned char row, unsigned char col) {
+    return SCREEN_MATRIX[row_offset[row] + col];
+}
+
 void screen_put_quad(unsigned char row, unsigned char col,
                       unsigned char first_code, unsigned char color) {
     screen_put(row, col, first_code, color);
