@@ -521,20 +521,23 @@ static void explode_fruit(unsigned char r, unsigned char c,
 
 #define FLASH_JIFFIES 8 /* ~160ms at 50Hz per flash phase */
 
-/* Flashes the border `color`/black twice -- the visual cue for a notable
+/* Flashes the border `color`/blue twice -- the visual cue for a notable
  * game event (see call sites: red for a life lost, green for a level
  * cleared). Blocks for its whole duration, which is what pauses the grid's
  * marching and the player's controls together: nothing in the caller's
  * loop runs again until this returns. Only the border (low nibble of
  * $900F) changes; the screen background stays black (see CLAUDE.md,
- * "Graphics and colors"). */
+ * "Graphics and colors"). Restores to blue rather than black between/after
+ * flashes since this is only ever called from the game screen, whose
+ * border is blue (see game_screen_run()) rather than the black used by the
+ * title/help screens. */
 static void flash_border(unsigned char color) {
     unsigned char i;
 
     for (i = 0; i < 2; i++) {
         VIC.bg_border_color = (COLOR_BLACK << 4) | color;
         wait_jiffies(FLASH_JIFFIES);
-        VIC.bg_border_color = (COLOR_BLACK << 4) | COLOR_BLACK;
+        VIC.bg_border_color = (COLOR_BLACK << 4) | COLOR_BLUE;
         wait_jiffies(FLASH_JIFFIES);
     }
 }
@@ -557,6 +560,7 @@ static void show_lose_screen(void) {
     unsigned char prompt_len = (unsigned char)strlen(prompt);
 
     screen_clear();
+    VIC.bg_border_color = (COLOR_BLACK << 4) | COLOR_BLUE;
     font_print(LOSE_ROW, (SCREEN_COLS - title_len) / 2, title, COLOR_WHITE);
     font_print(LOSE_PROMPT_ROW, (SCREEN_COLS - prompt_len) / 2, prompt, COLOR_CYAN);
     sound_game_over();
@@ -821,6 +825,7 @@ void game_screen_run(void) {
     unsigned char last_anim_jiffy;
 
     screen_clear();
+    VIC.bg_border_color = (COLOR_BLACK << 4) | COLOR_BLUE;
     star_blink = 0;
     starfield_draw_all(star_blink);
     hud_draw_lives(lives);
