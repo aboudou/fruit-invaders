@@ -39,6 +39,7 @@
 #define LINE_FIRE_ROW         13
 #define LINE_PAUSE_ROW        14
 #define LINE_TITLE_SCREEN_ROW 15
+#define MUTE_INDICATOR_ROW    17 /* "MUSIC OFF", same trick as title.c's own */
 #define BACK_ROW              19
 
 #define ANIM_JIFFIES 25 /* ~0.5s at 50Hz -- same pace as title.c's marquee/blink */
@@ -58,6 +59,7 @@
 #define LINE_FIRE_FIELD_WIDTH         11 /* EN "SPACE ... FIRE" (11) > FR "ESPACE TIR" (10) */
 #define LINE_PAUSE_FIELD_WIDTH        12 /* EN/FR "P ... PAUSE" (12), same both languages */
 #define LINE_TITLE_SCREEN_FIELD_WIDTH 19 /* EN "H ... TITLE SCREEN" (19) > FR (18) */
+#define MUSIC_OFF_FIELD_WIDTH         11 /* FR "MUSIQUE OFF" (11) > EN "MUSIC OFF" (9), see title.c */
 /* Width of the field the back prompt is centered within: cols 1-20, the
  * full row minus the two framing arrow-tile columns at col 0 and 21 (see
  * the main loop below) -- same span as title.c's own START_PROMPT_FIELD_WIDTH,
@@ -89,6 +91,18 @@ static void draw_help_text(void) {
                        LINE_TITLE_SCREEN_FIELD_WIDTH);
 }
 
+/* Shows or hides the "MUSIC OFF" indicator to match the title tune's
+ * current mute state -- same trick as title.c's own update_mute_indicator()
+ * (drawn in COLOR_BLACK, invisible against the background, when unmuted).
+ * `M` mutes/unmutes from here exactly as it does on the title screen (see
+ * wait_jiffies_or_f1() below), and the resulting state is the same
+ * persistent one that screen reads (see sound_music_start()), so this just
+ * needs to reflect it, not own it. */
+static void update_mute_indicator(void) {
+    font_print_padded(MUTE_INDICATOR_ROW, 6, lang_music_off(),
+                       sound_music_is_muted() ? COLOR_RED : COLOR_BLACK, MUSIC_OFF_FIELD_WIDTH);
+}
+
 /* Everything that's drawn once and never changes again: the starfield
  * (background, drawn first -- see the header comment above), the marquee
  * border, the game name (reusing title.c's exact bigfont_print() call and
@@ -104,6 +118,7 @@ static void draw_static(void) {
     bigfont_print(HELP_TITLE_ROW, 4, "FRUIT INVADERS");
 
     draw_help_text();
+    update_mute_indicator();
 }
 
 /* Draws the blinking "F1: BACK"/"F1: RETOUR" prompt and its two framing
@@ -131,7 +146,11 @@ static void draw_back_prompt(unsigned char blink) {
  * underneath this screen exactly as it did on the title screen, since
  * neither screen starts or stops it here (only Space, back on the title
  * screen, does that). L toggles the language and redraws every
- * language-dependent line in place, same as title.c. */
+ * language-dependent line in place, same as title.c. M toggles mute exactly
+ * like title.c's own M handler (see sound_music_toggle_mute()) -- the state
+ * is shared and persists across both screens (see sound_music_start()), so
+ * muting here and later returning to the title screen (or leaving this
+ * screen and coming back) keeps the tune silent until unmuted again. */
 static unsigned char wait_jiffies_or_f1(unsigned char n) {
     unsigned char start = *JIFFY_LOW;
     unsigned char key;
@@ -145,6 +164,11 @@ static unsigned char wait_jiffies_or_f1(unsigned char n) {
         if (key == 'L') {
             lang_toggle();
             draw_help_text();
+            update_mute_indicator();
+        }
+        if (key == 'M') {
+            sound_music_toggle_mute();
+            update_mute_indicator();
         }
     }
     return 0;

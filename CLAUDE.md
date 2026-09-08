@@ -197,7 +197,13 @@ lists this same breakdown for the player under its own "title screen"/"in
 game" headings — "Help screen" below).
 
 Title screen only:
-- `M`: toggle background music mute
+- `M`: toggle background music mute. The mute state is a persistent player
+  preference, not reset per visit: it survives returning to the title
+  screen after a lost game or `H`, and stays in effect across the whole
+  session until toggled again (see `sound_music_start()`/
+  `sound_music_toggle_mute()` in
+  [src/sound/sound.c](src/sound/sound.c)). Also works on the help screen
+  (see "Help screen" below), same as `L` just below.
 - `L`: toggle the UI language between English and French (see
   [src/gameplay/lang.c](src/gameplay/lang.c)/`lang.h` — the game screen's
   own text (HUD, lose screen) renders in whichever language was last
@@ -292,7 +298,11 @@ its sole owner any more:
   `sound_music_tick()` / `sound_music_stop()` in
   [src/sound/sound.c](src/sound/sound.c)), mutable with `M` (a
   "MUSIC OFF" indicator reflects the state) and always stopped the moment
-  Space is pressed;
+  Space is pressed. The mute toggle itself (also reachable from the help
+  screen, see below) is a persistent preference rather than being reset on
+  entry: `sound_music_start()` no longer forces it back to unmuted, so a
+  mute set on an earlier visit stays in effect after a lost game or `H`
+  back to this screen;
 - a blinking "PRESS SPACE TO START" prompt, framed by two inward-pointing
   arrow tiles that blink in lockstep with it.
 
@@ -337,6 +347,9 @@ actually does something on:
   and `M`, plus `F1` itself; `IN GAME`/`EN PARTIE` lists `S`/`D`, `Space`,
   `P` and `H` — the same grouping as "Controls" above, so this screen and
   that section of CLAUDE.md stay in sync;
+- its own "MUSIC OFF" indicator (`MUTE_INDICATOR_ROW`), the same trick as
+  the title screen's own (see above) and reflecting the same persistent
+  mute state, since `M` works here too (see below);
 - a blinking `F1: BACK`/`F1: RETOUR` prompt at the bottom, centered within
   the same cols-1-20 field as the title screen's start prompt (an initial
   version centered it within a field only as wide as the text itself,
@@ -349,11 +362,16 @@ actually does something on:
 `L` also works here (user-requested), toggling the same global language
 state as the title screen (see lang.c) and redrawing every
 language-dependent line on this screen in place, exactly like the title
-screen's own `L` handling. The title tune keeps playing underneath this
-screen exactly as it does on the title screen — neither screen starts or
-stops it for this excursion (see `sound_music_tick()` calls in both
-title.c's and help.c's own wait loops); only pressing Space back on the
-title screen does that.
+screen's own `L` handling. `M` also works here (user-requested), toggling
+the same persistent mute state as the title screen (see
+`sound_music_toggle_mute()` in sound.c) and updating this screen's own
+"MUSIC OFF" indicator in place, exactly like the title screen's own `M`
+handling — muting here and later returning to the title screen (or leaving
+and coming back to this one) keeps the tune silent until unmuted again. The
+title tune keeps playing underneath this screen exactly as it does on the
+title screen — neither screen starts or stops it for this excursion (see
+`sound_music_tick()` calls in both title.c's and help.c's own wait loops);
+only pressing Space back on the title screen does that.
 
 Verified in VICE via the `vice` MCP server (`vice_keyboard_petscii` to feed
 `F1`'s PETSCII code, 133, directly into the KERNAL keyboard buffer —

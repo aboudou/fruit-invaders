@@ -254,18 +254,21 @@ static void draw_start_prompt(unsigned char blink) {
  * wait with no Space press. Also ticks the title tune (see sound.c,
  * sound_music_tick()) on every pass -- cheap enough not to delay Space
  * detection, and this is the only loop that runs often enough to drive a
- * note-length timer of its own -- and toggles mute on M, title-screen-only
- * per CLAUDE.md's request (game.c never calls any sound_music_*
- * function). Also ticks the fruit ticker scroll (see scroll_tick() above)
- * for the same reason -- its own SCROLL_STEP_JIFFIES pace is finer than
- * ANIM_JIFFIES, so it needs to be driven from here rather than once per
- * outer loop iteration. Also handles F1: hands off to the help screen
- * (help_screen_run(), which blocks until F1 is pressed again there -- see
- * help.c) and, once it returns, redraws everything this screen owns, since
- * the help screen has overwritten the whole display in the meantime (same
- * reasoning as run_countdown()/show_lose_screen() being blocking sub-screens
- * in game.c). Doesn't stop or restart the title tune for this excursion --
- * only Space does that (see title_screen_run()) -- help_screen_run() ticks
+ * note-length timer of its own -- and toggles mute on M (game.c never calls
+ * any sound_music_* function, so this key only ever does anything here and,
+ * identically, on the help screen -- see help.c's own M handling; the
+ * resulting mute state persists across both screens and into future visits,
+ * see sound_music_start()). Also ticks the fruit ticker scroll (see
+ * scroll_tick() above) for the same reason -- its own SCROLL_STEP_JIFFIES
+ * pace is finer than ANIM_JIFFIES, so it needs to be driven from here rather
+ * than once per outer loop iteration. Also handles F1: hands off to the help
+ * screen (help_screen_run(), which blocks until F1 is pressed again there --
+ * see help.c) and, once it returns, redraws everything this screen owns,
+ * since the help screen has overwritten the whole display in the meantime
+ * (same reasoning as run_countdown()/show_lose_screen() being blocking
+ * sub-screens in game.c). Doesn't stop or restart the title tune for this
+ * excursion -- only Space does that (see title_screen_run()) --
+ * help_screen_run() ticks
  * it right alongside its own loop so it keeps playing underneath. */
 static unsigned char wait_jiffies_or_space(unsigned char n) {
     unsigned char start = *JIFFY_LOW;
@@ -319,7 +322,7 @@ void title_screen_run(void) {
 
     draw_static();
     sound_music_start();
-    update_mute_indicator(); /* sound_music_start() always resets to unmuted -- hide it */
+    update_mute_indicator(); /* reflect whatever mute state persisted in from before */
 
     for (;;) {
         if (wait_jiffies_or_space(ANIM_JIFFIES)) {

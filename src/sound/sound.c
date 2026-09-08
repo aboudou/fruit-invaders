@@ -137,13 +137,14 @@ void sound_game_over(void) {
     VIC.voice1 = 0;
 }
 
-/* Resets the title tune to its first step and starts it playing at
- * MUSIC_VOLUME, unmuted. Call once when the title screen is (re-)entered --
- * mute is intentionally not persisted across visits (see CLAUDE.md,
- * "Current project state"), so every fresh visit starts audible. */
+/* Resets the title tune to its first step and starts it playing, at
+ * MUSIC_VOLUME or silent depending on the current mute state. Call once
+ * when the title screen is (re-)entered -- mute is a persistent player
+ * preference (see sound_music_toggle_mute()), not reset here, so a mute set
+ * on an earlier visit (title or help screen) stays in effect across a lost
+ * game or `H` back to the title screen. */
 void sound_music_start(void) {
-    music_muted = 0;
-    VIC.volume_color = (VIC.volume_color & 0xF0) | MUSIC_VOLUME;
+    VIC.volume_color = (VIC.volume_color & 0xF0) | (music_muted ? 0 : MUSIC_VOLUME);
     music_index = 0;
     VIC.voice2 = music_notes[0];
     music_last_jiffy = *JIFFY_LOW;
@@ -170,7 +171,8 @@ void sound_music_tick(void) {
  * muted, MUSIC_VOLUME when not) -- sound_music_tick() keeps writing notes
  * to voice2 either way, so the sequence keeps advancing while muted and
  * un-muting resumes exactly in sync rather than restarting the tune. Call
- * from title.c's `M` key handler. */
+ * from title.c's or help.c's `M` key handler -- the resulting music_muted
+ * state persists across screens (see sound_music_start()). */
 void sound_music_toggle_mute(void) {
     music_muted = !music_muted;
     VIC.volume_color = (VIC.volume_color & 0xF0) | (music_muted ? 0 : MUSIC_VOLUME);
