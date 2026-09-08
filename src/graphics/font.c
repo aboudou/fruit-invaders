@@ -12,6 +12,7 @@
  * -- charmem_load() applies the same hardware inversion. Only the letters
  * used by title.c's and game.c's strings are defined. */
 static const unsigned char glyph_A[8]     = {0x70, 0x88, 0x88, 0xF8, 0x88, 0x88, 0x88, 0x00};
+static const unsigned char glyph_B[8]     = {0xF0, 0x88, 0x88, 0xF0, 0x88, 0x88, 0xF0, 0x00};
 static const unsigned char glyph_C[8]     = {0x78, 0x80, 0x80, 0x80, 0x80, 0x80, 0x78, 0x00};
 static const unsigned char glyph_D[8]     = {0xF0, 0x88, 0x88, 0x88, 0x88, 0x88, 0xF0, 0x00};
 static const unsigned char glyph_E[8]     = {0xF8, 0x80, 0x80, 0xF0, 0x80, 0x80, 0xF8, 0x00};
@@ -25,6 +26,7 @@ static const unsigned char glyph_M[8]     = {0x88, 0xD8, 0xA8, 0x88, 0x88, 0x88,
 static const unsigned char glyph_N[8]     = {0x88, 0xC8, 0xA8, 0x98, 0x88, 0x88, 0x88, 0x00};
 static const unsigned char glyph_O[8]     = {0x70, 0x88, 0x88, 0x88, 0x88, 0x88, 0x70, 0x00};
 static const unsigned char glyph_P[8]     = {0xF0, 0x88, 0x88, 0xF0, 0x80, 0x80, 0x80, 0x00};
+static const unsigned char glyph_Q[8]     = {0x70, 0x88, 0x88, 0x88, 0x88, 0xA8, 0x70, 0x00};
 static const unsigned char glyph_R[8]     = {0xF0, 0x88, 0x88, 0xF0, 0xA0, 0x90, 0x88, 0x00};
 static const unsigned char glyph_S[8]     = {0x78, 0x80, 0x80, 0x70, 0x08, 0x08, 0xF0, 0x00};
 static const unsigned char glyph_T[8]     = {0xF8, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x00};
@@ -32,6 +34,7 @@ static const unsigned char glyph_U[8]     = {0x88, 0x88, 0x88, 0x88, 0x88, 0x88,
 static const unsigned char glyph_V[8]     = {0x88, 0x88, 0x88, 0x88, 0x88, 0x50, 0x20, 0x00};
 static const unsigned char glyph_W[8]     = {0x88, 0x88, 0x88, 0xA8, 0xA8, 0xD8, 0x88, 0x00};
 static const unsigned char glyph_Y[8]     = {0x88, 0x88, 0x50, 0x20, 0x20, 0x20, 0x20, 0x00};
+static const unsigned char glyph_Z[8]     = {0xF8, 0x08, 0x10, 0x20, 0x40, 0x80, 0xF8, 0x00};
 static const unsigned char glyph_SLASH[8] = {0x08, 0x10, 0x20, 0x20, 0x20, 0x40, 0x80, 0x00};
 static const unsigned char glyph_COLON[8] = {0x00, 0x20, 0x20, 0x00, 0x20, 0x20, 0x00, 0x00};
 
@@ -50,6 +53,7 @@ static const unsigned char glyph_9[8] = {0x70, 0x88, 0x88, 0x78, 0x08, 0x10, 0x6
 
 void font_load(void) {
     charmem_load(CHAR_FONT_A, glyph_A, 8);
+    charmem_load(CHAR_FONT_B, glyph_B, 8);
     charmem_load(CHAR_FONT_C, glyph_C, 8);
     charmem_load(CHAR_FONT_D, glyph_D, 8);
     charmem_load(CHAR_FONT_E, glyph_E, 8);
@@ -63,6 +67,7 @@ void font_load(void) {
     charmem_load(CHAR_FONT_N, glyph_N, 8);
     charmem_load(CHAR_FONT_O, glyph_O, 8);
     charmem_load(CHAR_FONT_P, glyph_P, 8);
+    charmem_load(CHAR_FONT_Q, glyph_Q, 8);
     charmem_load(CHAR_FONT_R, glyph_R, 8);
     charmem_load(CHAR_FONT_S, glyph_S, 8);
     charmem_load(CHAR_FONT_T, glyph_T, 8);
@@ -70,6 +75,7 @@ void font_load(void) {
     charmem_load(CHAR_FONT_V, glyph_V, 8);
     charmem_load(CHAR_FONT_W, glyph_W, 8);
     charmem_load(CHAR_FONT_Y, glyph_Y, 8);
+    charmem_load(CHAR_FONT_Z, glyph_Z, 8);
     charmem_load(CHAR_FONT_SLASH, glyph_SLASH, 8);
     charmem_load(CHAR_FONT_COLON, glyph_COLON, 8);
     charmem_load(CHAR_FONT_0, glyph_0, 8);
@@ -87,6 +93,7 @@ void font_load(void) {
 static unsigned char code_for(char c) {
     switch (c) {
     case 'A': return CHAR_FONT_A;
+    case 'B': return CHAR_FONT_B;
     case 'C': return CHAR_FONT_C;
     case 'D': return CHAR_FONT_D;
     case 'E': return CHAR_FONT_E;
@@ -100,6 +107,7 @@ static unsigned char code_for(char c) {
     case 'N': return CHAR_FONT_N;
     case 'O': return CHAR_FONT_O;
     case 'P': return CHAR_FONT_P;
+    case 'Q': return CHAR_FONT_Q;
     case 'R': return CHAR_FONT_R;
     case 'S': return CHAR_FONT_S;
     case 'T': return CHAR_FONT_T;
@@ -107,6 +115,7 @@ static unsigned char code_for(char c) {
     case 'V': return CHAR_FONT_V;
     case 'W': return CHAR_FONT_W;
     case 'Y': return CHAR_FONT_Y;
+    case 'Z': return CHAR_FONT_Z;
     case '/': return CHAR_FONT_SLASH;
     case ':': return CHAR_FONT_COLON;
     case '0': return CHAR_FONT_0;
@@ -128,5 +137,21 @@ void font_print(unsigned char row, unsigned char col, const char *text, unsigned
         screen_put(row, col, code_for(*text), color);
         col++;
         text++;
+    }
+}
+
+void font_print_padded(unsigned char row, unsigned char col, const char *text,
+                        unsigned char color, unsigned char field_width) {
+    unsigned char written = 0;
+
+    while (*text) {
+        screen_put(row, col, code_for(*text), color);
+        col++;
+        text++;
+        written++;
+    }
+    for (; written < field_width; written++) {
+        screen_put(row, col, CHAR_BLANK, COLOR_BLACK);
+        col++;
     }
 }

@@ -7,8 +7,10 @@
 #include "../graphics/sprites.h"
 #include "../graphics/starfield.h"
 #include "../sound/sound.h"
+#include "lang.h"
 
-#include <cbm.h> /* cbm_k_getin(): KERNAL keyboard-buffer read */
+#include <cbm.h>    /* cbm_k_getin(): KERNAL keyboard-buffer read */
+#include <string.h> /* strlen(): centers the start prompt within its field, see below */
 
 /* KERNAL jiffy clock, low byte: incremented by the IRQ at the PAL raster
  * rate (50/sec). Paces the fruit wobble, the fruit ticker scroll and the
@@ -37,6 +39,22 @@
 #define MARQUEE_ROW_BOTTOM  (SCREEN_ROWS - 1)
 
 #define ANIM_JIFFIES 25 /* ~0.5s at 50Hz: fruit wobble and prompt blink share one pace */
+
+/* Field widths for font_print_padded() calls on the language-dependent
+ * strings below (see lang.h) -- each must be >= the longer of that string's
+ * English/French variant, so toggling language with L never leaves the
+ * previous, longer string's trailing glyphs on screen (see font.h's
+ * font_print_padded() doc comment). Computed by hand from lang.c's string
+ * literals: */
+#define CONTROLS_FIELD_WIDTH     21 /* FR "S/D BOUGER ESPACE TIR" (21) > EN "S/D MOVE  SPACE FIRE" (20) */
+#define MUTE_HINT_FIELD_WIDTH    16 /* FR "M COUPER MUSIQUE" (16) > EN "M MUTE MUSIC" (12) */
+#define MUSIC_OFF_FIELD_WIDTH    11 /* FR "MUSIQUE OFF" (11) > EN "MUSIC OFF" (9) */
+/* Also the width of the field the start prompt is centered within (cols
+ * 1-20, i.e. everything between the two framing arrow tiles at col 0 and 21
+ * -- see the main loop below): EN fills it exactly, FR is centered inside
+ * it rather than left-anchored, so a shorter translation doesn't end up
+ * hugging the left arrow. */
+#define START_PROMPT_FIELD_WIDTH 20 /* EN "PRESS SPACE TO START" (20) > FR "APPUYEZ SUR ESPACE" (18) */
 
 /* Fruit ticker: the four fruit sprites drift left-to-right and wrap back in
  * from the left once they scroll off the right edge, an "infinite scroll"
@@ -176,8 +194,22 @@ static void draw_marquee(unsigned char phase) {
  * blinking start prompt below) when unmuted, so no separate clear call is
  * needed. */
 static void update_mute_indicator(void) {
-    font_print(MUTE_INDICATOR_ROW, 6, "MUSIC OFF",
-               sound_music_is_muted() ? COLOR_RED : COLOR_BLACK);
+    font_print_padded(MUTE_INDICATOR_ROW, 6, lang_music_off(),
+                       sound_music_is_muted() ? COLOR_RED : COLOR_BLACK,
+                       MUSIC_OFF_FIELD_WIDTH);
+}
+
+/* Redraws every language-dependent static line in its current language --
+ * called once from draw_static() and again, immediately, whenever L toggles
+ * the language (see wait_jiffies_or_space() below) so the switch is visible
+ * right away rather than waiting for the next unrelated redraw of that
+ * line. */
+static void draw_controls_hint(void) {
+    font_print_padded(CONTROLS_ROW, 1, lang_controls_hint(), COLOR_CYAN, CONTROLS_FIELD_WIDTH);
+}
+
+static void draw_mute_hint(void) {
+    font_print_padded(MUTE_HINT_ROW, 5, lang_mute_hint(), COLOR_CYAN, MUTE_HINT_FIELD_WIDTH);
 }
 
 /* Waits up to n jiffies, checking the keyboard buffer on every pass of the
@@ -208,6 +240,12 @@ static unsigned char wait_jiffies_or_space(unsigned char n) {
             sound_music_toggle_mute();
             update_mute_indicator();
         }
+        if (key == 'L') {
+            lang_toggle();
+            draw_controls_hint();
+            draw_mute_hint();
+            update_mute_indicator();
+        }
     }
     return 0;
 }
@@ -227,8 +265,8 @@ static void draw_static(void) {
 
     draw_fruits(scroll_offset);
 
-    font_print(CONTROLS_ROW, 1, "S/D MOVE  SPACE FIRE", COLOR_CYAN);
-    font_print(MUTE_HINT_ROW, 5, "M MUTE MUSIC", COLOR_CYAN);
+    draw_controls_hint();
+    draw_mute_hint();
 }
 
 void title_screen_run(void) {
@@ -260,7 +298,22 @@ void title_screen_run(void) {
 
         blink ^= 1;
         starfield_draw_all(blink);
-        font_print(START_ROW, 1, "PRESS SPACE TO START", blink ? COLOR_WHITE : COLOR_BLACK);
+        {
+            const char *prompt = lang_start_prompt();
+            unsigned char prompt_len = (unsigned char)strlen(prompt);
+            /* Centered within the field (cols 1-20, see
+             * START_PROMPT_FIELD_WIDTH) rather than left-anchored -- EN
+             * fills the field so this is a no-op offset for it, but FR is
+             * shorter and would otherwise hug the left arrow. The field is
+             * blanked in full first (font_print_padded with an empty
+             * string) since the centered column itself shifts with the
+             * string's length -- drawing the new text alone wouldn't clear
+             * whatever the previous language's differently-positioned text
+             * left outside its own span. */
+            font_print_padded(START_ROW, 1, "", COLOR_BLACK, START_PROMPT_FIELD_WIDTH);
+            font_print(START_ROW, 1 + (START_PROMPT_FIELD_WIDTH - prompt_len) / 2, prompt,
+                       blink ? COLOR_WHITE : COLOR_BLACK);
+        }
         /* Chevrons framing the prompt, blinking in lockstep with it --
          * point inward (right-pointing on the left, left-pointing on the
          * right) so they read as bracketing the text rather than as a

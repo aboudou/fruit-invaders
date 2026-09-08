@@ -6,9 +6,11 @@
 #include "../graphics/sprites.h"
 #include "../graphics/starfield.h"
 #include "../sound/sound.h"
+#include "lang.h"
 
 #include <cbm.h>    /* cbm_k_getin(): KERNAL keyboard-buffer read, also pulls in vic20.h's COLOR_* */
 #include <stdlib.h> /* rand()/srand(): shooter selection and fire-timing stagger, see shooters_select() */
+#include <string.h> /* strlen(): centers/right-aligns lang.h's language-dependent strings below */
 
 /* Screen layout (22x23, see screen.h): row 0 is the HUD (lives left, level
  * right); the last two rows are the ship's horizontal movement lane (see
@@ -26,11 +28,11 @@
 #define STARTING_LIVES    3
 #define LIFE_BONUS_LEVELS 5
 
-/* Level counter: right-aligned "LEVEL:NN" (8 chars) ending at the last
- * column, zero-padded to 2 digits per the spec (starts at 01). Advances
- * when every fruit is cleared (see advance_level()) -- what else should
- * change between levels (harder pace, a different formation, ...) is left
- * for later (see CLAUDE.md, "Levels"). */
+/* Level counter: right-aligned "LEVEL:NN"/"NIVEAU:NN" (see lang.h) ending
+ * at the last column, zero-padded to 2 digits per the spec (starts at 01).
+ * Advances when every fruit is cleared (see advance_level()) -- what else
+ * should change between levels (harder pace, a different formation, ...) is
+ * left for later (see CLAUDE.md, "Levels"). */
 #define STARTING_LEVEL 1
 
 /* Starfield background: a fixed scatter of twinkling stars behind the fruit
@@ -549,14 +551,21 @@ static void flash_border(unsigned char color) {
 
 /* Clears the screen and shows the game-over message, blocking until Space
  * is pressed. Caller returns to the title screen right after (see
- * game_screen_run()). */
+ * game_screen_run()). Both strings come from lang.h (see game_screen_run()'s
+ * comment on this screen rendering whichever language was last selected on
+ * the title screen), so their length isn't a fixed constant the way it was
+ * before translation -- centered here from strlen() instead of a
+ * hand-computed column, same rounding (odd leftover width favors the left)
+ * either way. */
 static void show_lose_screen(void) {
-    /* "YOU LOSE" (8 chars) and "PRESS SPACE" (11 chars) each centered on
-     * the 22-column screen; 22-11 is odd so PRESS SPACE is off by one
-     * column, same rounding as the fruit row centering in title.c. */
+    const char *title = lang_lose_title();
+    const char *prompt = lang_lose_prompt();
+    unsigned char title_len = (unsigned char)strlen(title);
+    unsigned char prompt_len = (unsigned char)strlen(prompt);
+
     screen_clear();
-    font_print(LOSE_ROW, (SCREEN_COLS - 8) / 2, "YOU LOSE", COLOR_WHITE);
-    font_print(LOSE_PROMPT_ROW, (SCREEN_COLS - 11) / 2, "PRESS SPACE", COLOR_CYAN);
+    font_print(LOSE_ROW, (SCREEN_COLS - title_len) / 2, title, COLOR_WHITE);
+    font_print(LOSE_PROMPT_ROW, (SCREEN_COLS - prompt_len) / 2, prompt, COLOR_CYAN);
     sound_game_over();
     while (cbm_k_getin() != ' ') {
         /* wait for acknowledgement */
@@ -575,13 +584,26 @@ static void hud_draw_lives(unsigned char lives) {
     }
 }
 
-/* Draws "LEVEL:NN" right-aligned against the last screen column. */
+/* Draws "LEVEL:NN"/"NIVEAU:NN" (see lang.h) right-aligned against the last
+ * screen column. The label's length depends on the current language, so
+ * unlike before translation this can't be a fixed 8-char buffer/column --
+ * built from lang_level_label() plus ":NN" instead, with the starting
+ * column computed from the actual resulting length. */
 static void hud_draw_level(unsigned char level) {
-    char text[9] = "LEVEL:00";
+    char text[10]; /* longest case: FR "NIVEAU:NN" (9 chars) + NUL */
+    const char *label = lang_level_label();
+    unsigned char len = (unsigned char)strlen(label);
+    unsigned char i;
 
-    text[6] = '0' + (level / 10);
-    text[7] = '0' + (level % 10);
-    font_print(HUD_ROW, SCREEN_COLS - 8, text, COLOR_WHITE);
+    for (i = 0; i < len; i++) {
+        text[i] = label[i];
+    }
+    text[i++] = ':';
+    text[i++] = '0' + (level / 10);
+    text[i++] = '0' + (level % 10);
+    text[i] = '\0';
+
+    font_print(HUD_ROW, SCREEN_COLS - i, text, COLOR_WHITE);
 }
 
 /* Advances every shooter's fire timer and any shot it has in flight by one

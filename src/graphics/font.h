@@ -23,6 +23,7 @@
  * font.c's glyph count. */
 enum {
     CHAR_FONT_A = CHAR_BLANK + 1,
+    CHAR_FONT_B,
     CHAR_FONT_C,
     CHAR_FONT_D,
     CHAR_FONT_E,
@@ -36,6 +37,7 @@ enum {
     CHAR_FONT_N,
     CHAR_FONT_O,
     CHAR_FONT_P,
+    CHAR_FONT_Q,
     CHAR_FONT_R,
     CHAR_FONT_S,
     CHAR_FONT_T,
@@ -43,6 +45,7 @@ enum {
     CHAR_FONT_V,
     CHAR_FONT_W,
     CHAR_FONT_Y,
+    CHAR_FONT_Z,
     CHAR_FONT_SLASH,
     CHAR_FONT_COLON,
     CHAR_FONT_0,
@@ -69,5 +72,16 @@ void font_load(void);
  * font.c) fall back to a blank cell, which also covers plain spaces.
  * row/col follow screen_put()'s convention (0-based). */
 void font_print(unsigned char row, unsigned char col, const char *text, unsigned char color);
+
+/* Like font_print(), but always writes exactly field_width cells: text's own
+ * characters followed by blanks for the rest. Needed wherever the same
+ * screen position is redrawn with text whose length can change from one call
+ * to the next (title.c's language-dependent strings, retranslated in place
+ * by the L key -- see lang.h) -- without padding, switching to a shorter
+ * string would leave the previous, longer one's trailing glyphs on screen
+ * instead of blanking them. field_width must be at least as long as every
+ * string ever passed for a given screen position. */
+void font_print_padded(unsigned char row, unsigned char col, const char *text,
+                        unsigned char color, unsigned char field_width);
 
 #endif

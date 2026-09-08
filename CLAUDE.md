@@ -195,6 +195,12 @@ single cell is too small to read as a fruit shape.
 - `D`: move right
 - `Space`: fire
 - `M`: toggle background music mute (title screen only)
+- `L`: toggle the UI language between English and French (title screen only,
+  see [src/gameplay/lang.c](src/gameplay/lang.c)/`lang.h` — the game screen's
+  own text (HUD, lose screen) renders in whichever language was last
+  selected, but has no control of its own to change it). The game starts in
+  English every run. The game's name ("FRUIT INVADERS", drawn with
+  bigfont.c) is never translated.
 - `P`: pause / resume (game screen only, at any point — a silent freeze with
   no on-screen indicator, and deliberately not advertised on the title
   screen's controls reminder)
@@ -246,7 +252,12 @@ only caller:
   toggle music) — a first pass replaced this with icon rows (reduced-ship/
   shot/note tiles next to the key names) but was reverted at the user's
   request: the plain sentences read more clearly than the pictograms did,
-  so this stays text while the border/starfield above stayed graphical;
+  so this stays text while the border/starfield above stayed graphical.
+  Both lines are drawn from lang.c (see above) in whichever language is
+  current, redrawn in place the moment `L` toggles it — `L` itself isn't
+  called out in this reminder (same "not advertised" treatment as `H`/`P`,
+  see "Controls", though for a different reason: discoverability of a
+  language switch felt less essential than keeping this reminder short);
 - a looping background tune (see `sound_music_start()` /
   `sound_music_tick()` / `sound_music_stop()` in
   [src/sound/sound.c](src/sound/sound.c)), mutable with `M` (a
@@ -363,7 +374,16 @@ volatile-aware, inverting loader into character memory at `$1400`;
 grapes/pepper (2 animation frames each)/ship/shot bitmaps on top of it;
 [src/graphics/font.c](src/graphics/font.c) is a minimal hand-authored
 uppercase font (only the letters/`/` actually used in title/game screen
-text) sharing the same character set; [src/graphics/bigfont.c](src/graphics/bigfont.c)
+text, in both languages -- see [src/gameplay/lang.c](src/gameplay/lang.c)/
+`lang.h` below) sharing the same character set, plus `font_print_padded()`
+(pads a redrawn string out to a fixed field width with blanks, so switching
+to a shorter translation never leaves the previous, longer string's
+trailing glyphs on screen -- used by title.c's language-dependent lines);
+lang.c/lang.h hold the current UI language (English/French, toggled by `L`
+on the title screen only -- see "Controls") and one accessor per
+language-dependent string, called from both title.c and game.c (the game
+screen renders whichever language was last selected but never changes it
+itself); [src/graphics/bigfont.c](src/graphics/bigfont.c)
 is the separate 1x2-cell "big" font used only for the title screen's game
 name (also sharing that character set); [src/graphics/decor.c](src/graphics/decor.c)
 holds the title screen's marquee/star/arrow tile bitmaps on top of it (also
@@ -381,7 +401,8 @@ and stops the moment Space is pressed; it returns when Space is pressed
 (polled via the KERNAL `GETIN` call, `cbm_k_getin()`, with no dedicated
 input module yet — see "Still to define/do" below).
 [src/gameplay/game.c](src/gameplay/game.c) is the real gameplay screen: HUD
-(lives icons left, "LEVEL:NN" right), ship movement (`S`/`D`, clamped to the
+(lives icons left, "LEVEL:NN"/"NIVEAU:NN" right, built from lang.c's current
+label -- see above), ship movement (`S`/`D`, clamped to the
 screen) and single-shot firing (`Space`, travels straight up and vanishes at
 the top of the game zone), a pre-game 3-2-1 countdown, and a fruit grid
 (6 cols x 5 rows, one fruit type per row, cycling apple/carrot/grapes/pepper)
@@ -394,7 +415,10 @@ row reaches the ship's lane, that row disappears, a life is lost (HUD
 updated), the ship plays the shared explosion effect (see "Sprite storage
 format" -- the ship is its first user), and the border flashes twice before
 play resumes from where it was. On the last life, the screen shows
-"YOU LOSE"/"PRESS SPACE" and returns to the title screen on `Space`. Still
+"YOU LOSE"/"PRESS SPACE" (or their French translations, lang.c's
+`lang_lose_title()`/`lang_lose_prompt()`, centered from `strlen()` since
+their width isn't a compile-time constant once translated) and returns to
+the title screen on `Space`. Still
 returns to the title screen on `H` at any point (a debug/testing shortcut).
 The shot kills whichever individual fruit it overlaps (per-fruit alive
 state, independent of the whole-row loss above -- see `fruit_alive[][]` and
@@ -488,7 +512,7 @@ in VICE via the `vice` MCP server (`vice_keyboard_type`, not
 ```bash
 /Users/aboudou/Developer/VIC-20/llvm-mos/bin/mos-vic20-clang \
     -Os -T link/vic20-fruit-invaders.ld -o game.prg \
-    src/main.c src/gameplay/title.c src/gameplay/game.c \
+    src/main.c src/gameplay/title.c src/gameplay/game.c src/gameplay/lang.c \
     src/graphics/sprites.c src/graphics/screen.c src/graphics/font.c \
     src/graphics/bigfont.c src/graphics/decor.c src/graphics/starfield.c \
     src/graphics/charmem.c src/sound/sound.c
