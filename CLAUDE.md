@@ -201,23 +201,44 @@ single cell is too small to read as a fruit shape.
 ## Title screen
 
 Implemented in [src/gameplay/title.c](src/gameplay/title.c), shown before
-every game and returning to `main()` when Space is pressed:
+every game and returning to `main()` when Space is pressed. Deliberately
+graphical rather than a flat black background — new pseudo-bitmap tiles for
+this (chasing-light bulb, star, left/right arrow) live in
+[src/graphics/decor.c](src/graphics/decor.c)/`decor.h`, a small module
+separate from sprites.c/font.c/bigfont.c since none of it is gameplay- or
+text-rendering-related, title.c is its only caller:
 - the game's name, **FRUIT INVADERS**, in a dedicated 1x2-cell "big" font
   (see [src/graphics/bigfont.c](src/graphics/bigfont.c), distinct from the
   regular 8x8 font used for body text) — deliberately not the ship or a
   shot sprite (see "Sprite storage format": both are reused as-is in the
   gameplay screen, nothing title-specific to show there);
+- a chasing-light marquee border across the top and bottom rows (arcade
+  "running lights" look): a repeating bulb tile, color-cycled through the
+  same four fruit colors used elsewhere on this screen, with the top and
+  bottom rows chasing in opposite directions off one shared phase counter
+  advanced every animation tick — pure color-RAM rewrites, no extra timer;
+- a twinkling starfield filling the otherwise-empty background rows (fixed
+  scatter of star tiles, picked to avoid every row the title/ticker/text
+  content already occupies) — each star swaps between white and cyan
+  (never goes fully dark, so the field doesn't look like it's vanishing)
+  on the same tick as the start prompt's blink, XORed with the star's own
+  index so only about half the field swaps on any given tick instead of
+  the whole thing flipping in lockstep;
 - the four fruit/vegetable sprites as an infinite horizontal ticker
   (scrolling across the full screen width and wrapping back in from the
   left), wobble-animated in place independently of the scroll;
 - a reminder of the controls (`S`/`D` to move, `Space` to fire, `M` to
-  toggle music);
+  toggle music) — a first pass replaced this with icon rows (reduced-ship/
+  shot/note tiles next to the key names) but was reverted at the user's
+  request: the plain sentences read more clearly than the pictograms did,
+  so this stays text while the border/starfield above stayed graphical;
 - a looping background tune (see `sound_music_start()` /
   `sound_music_tick()` / `sound_music_stop()` in
   [src/sound/sound.c](src/sound/sound.c)), mutable with `M` (a
   "MUSIC OFF" indicator reflects the state) and always stopped the moment
   Space is pressed;
-- a blinking "PRESS SPACE TO START" prompt.
+- a blinking "PRESS SPACE TO START" prompt, framed by two inward-pointing
+  arrow tiles that blink in lockstep with it.
 
 ## Levels
 
@@ -329,7 +350,9 @@ grapes/pepper (2 animation frames each)/ship/shot bitmaps on top of it;
 uppercase font (only the letters/`/` actually used in title/game screen
 text) sharing the same character set; [src/graphics/bigfont.c](src/graphics/bigfont.c)
 is the separate 1x2-cell "big" font used only for the title screen's game
-name (also sharing that character set); [src/graphics/screen.c](src/graphics/screen.c)
+name (also sharing that character set); [src/graphics/decor.c](src/graphics/decor.c)
+holds the title screen's marquee/star/arrow tiles on top of it (also
+sharing that character set); [src/graphics/screen.c](src/graphics/screen.c)
 writes the screen matrix and color RAM. [src/gameplay/title.c](src/gameplay/title.c)
 is the title screen (see "Title screen" for the full breakdown), plus a looping tune (see
 `sound_music_start()`/`sound_music_tick()`/`sound_music_stop()` in
@@ -423,7 +446,8 @@ in VICE via the `vice` MCP server (`vice_keyboard_type`, not
     -Os -T link/vic20-fruit-invaders.ld -o game.prg \
     src/main.c src/gameplay/title.c src/gameplay/game.c \
     src/graphics/sprites.c src/graphics/screen.c src/graphics/font.c \
-    src/graphics/bigfont.c src/graphics/charmem.c src/sound/sound.c
+    src/graphics/bigfont.c src/graphics/decor.c src/graphics/charmem.c \
+    src/sound/sound.c
 ```
 
 **VICE MCP server gotcha**: `vice_keyboard_key_press` (matrix-level key emulation)

@@ -22,6 +22,14 @@
 #ifndef BIGFONT_H
 #define BIGFONT_H
 
+#include "font.h" /* CHAR_FONT_END: base for CHAR_BIG_END below */
+
+/* One past the last big-font code -- not a real glyph. Exposed so another
+ * module needing its own disjoint codes in the same character set (decor.c,
+ * for the title screen's marquee/star/arrow/note tiles) can start right
+ * after it, same reasoning as font.h's CHAR_FONT_END. */
+#define CHAR_BIG_END (CHAR_FONT_END + 22)
+
 /* Loads every big-font glyph (top and bottom half) into character memory.
  * Call once at startup, alongside sprites_load()/font_load() (all three
  * share the $1400 character set, in disjoint code ranges -- see

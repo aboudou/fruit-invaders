@@ -56,7 +56,8 @@ mos-vic20-clang \
     -Os -T link/vic20-fruit-invaders.ld -o game.prg \
     src/main.c src/gameplay/title.c src/gameplay/game.c \
     src/graphics/sprites.c src/graphics/screen.c src/graphics/font.c \
-    src/graphics/bigfont.c src/graphics/charmem.c src/sound/sound.c
+    src/graphics/bigfont.c src/graphics/decor.c src/graphics/charmem.c \
+    src/sound/sound.c
 ```
 
 ## Debugging / testing

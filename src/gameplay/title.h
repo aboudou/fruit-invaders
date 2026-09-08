@@ -1,7 +1,8 @@
-/* Title screen (see CLAUDE.md, "Title screen"): game name, controls
- * reminder, start prompt, and the four animated fruit/vegetable sprites
- * (ship and shot are deliberately not shown here -- they belong to
- * gameplay, not the title). */
+/* Title screen (see CLAUDE.md, "Title screen"): game name, a chasing-light
+ * marquee border and twinkling starfield (see graphics/decor.h), the four
+ * animated fruit/vegetable sprites (ship and shot are deliberately not
+ * shown here -- they belong to gameplay, not the title), a controls
+ * reminder, and the start prompt. */
 
 #ifndef TITLE_H
 #define TITLE_H

@@ -7,6 +7,7 @@
 #include "gameplay/game.h"
 #include "gameplay/title.h"
 #include "graphics/bigfont.h"
+#include "graphics/decor.h"
 #include "graphics/font.h"
 #include "graphics/screen.h"
 #include "graphics/sprites.h"
@@ -16,6 +17,7 @@ int main(void) {
     sprites_load();
     font_load();
     bigfont_load();
+    decor_load();
     sound_init();
 
     for (;;) {
