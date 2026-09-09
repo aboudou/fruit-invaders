@@ -5,6 +5,7 @@
  * two forever. */
 
 #include "gameplay/game.h"
+#include "gameplay/loading.h"
 #include "gameplay/title.h"
 #include "graphics/bigfont.h"
 #include "graphics/decor.h"
@@ -19,6 +20,8 @@ int main(void) {
     bigfont_load();
     decor_load();
     sound_init();
+
+    loading_screen_run(); /* one-time fake "cassette loading" intro, see loading.h */
 
     for (;;) {
         screen_clear();

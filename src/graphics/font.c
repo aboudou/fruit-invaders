@@ -36,7 +36,8 @@ static const unsigned char glyph_W[8]     = {0x88, 0x88, 0x88, 0xA8, 0xA8, 0xD8,
 static const unsigned char glyph_Y[8]     = {0x88, 0x88, 0x50, 0x20, 0x20, 0x20, 0x20, 0x00};
 static const unsigned char glyph_Z[8]     = {0xF8, 0x08, 0x10, 0x20, 0x40, 0x80, 0xF8, 0x00};
 static const unsigned char glyph_SLASH[8] = {0x08, 0x10, 0x20, 0x20, 0x20, 0x40, 0x80, 0x00};
-static const unsigned char glyph_COLON[8] = {0x00, 0x20, 0x20, 0x00, 0x20, 0x20, 0x00, 0x00};
+static const unsigned char glyph_COLON[8]  = {0x00, 0x20, 0x20, 0x00, 0x20, 0x20, 0x00, 0x00};
+static const unsigned char glyph_PERIOD[8] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x20, 0x00};
 
 /* Digits, same blocky 5x7 style as the letters above -- needed for the HUD
  * level counter (see game.c, "LEVEL:01"). */
@@ -78,6 +79,7 @@ void font_load(void) {
     charmem_load(CHAR_FONT_Z, glyph_Z, 8);
     charmem_load(CHAR_FONT_SLASH, glyph_SLASH, 8);
     charmem_load(CHAR_FONT_COLON, glyph_COLON, 8);
+    charmem_load(CHAR_FONT_PERIOD, glyph_PERIOD, 8);
     charmem_load(CHAR_FONT_0, glyph_0, 8);
     charmem_load(CHAR_FONT_1, glyph_1, 8);
     charmem_load(CHAR_FONT_2, glyph_2, 8);
@@ -118,6 +120,7 @@ static unsigned char code_for(char c) {
     case 'Z': return CHAR_FONT_Z;
     case '/': return CHAR_FONT_SLASH;
     case ':': return CHAR_FONT_COLON;
+    case '.': return CHAR_FONT_PERIOD;
     case '0': return CHAR_FONT_0;
     case '1': return CHAR_FONT_1;
     case '2': return CHAR_FONT_2;

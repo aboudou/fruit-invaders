@@ -48,6 +48,7 @@ enum {
     CHAR_FONT_Z,
     CHAR_FONT_SLASH,
     CHAR_FONT_COLON,
+    CHAR_FONT_PERIOD,
     CHAR_FONT_0,
     CHAR_FONT_1,
     CHAR_FONT_2,

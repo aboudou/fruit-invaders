@@ -229,6 +229,34 @@ In game only:
   help screen (the user explicitly asked for `H` and `P` to be included
   there, unlike their previous "not advertised" treatment).
 
+## Loading screen
+
+Implemented in [src/gameplay/loading.c](src/gameplay/loading.c)/`loading.h`,
+run once from `main()` before the very first title screen — purely cosmetic,
+nothing is actually being loaded from here. A nod to the classic C64/VIC-20
+cassette-loading "stripes": real loaders changed the border color once per
+byte read (`INC $D020`-style, or `LDA $D020 : EOR #$05 : STA $D020` to
+alternate), with no synchronization to the raster beam — since the display
+is drawn line by line, that naturally produced horizontal color bands rather
+than noise. `loading_screen_run()` reproduces this on this hardware's
+`$900F`/36879 (see "Graphics and colors"): a tight loop rewrites the
+**border nibble only** (bits 0-2, the 8 colors it can actually show) through
+`STRIPE_PALETTE`, with a short cycle-count spin between writes (deliberately
+*not* paced by the jiffy clock like every other timed effect here, since the
+whole point is to change color several times per raster line) for about
+`LOADING_JIFFIES` (~1.5s at 50Hz). The **background nibble stays
+`COLOR_BLACK`** throughout — confining the flashing to the true border frame
+— so the interior reads cleanly: `screen_clear()` first, then a centered
+`"GROWING FRUITS..."` message (`font_print()`, see font.c) drawn once and
+left static for the whole effect. The message's `.` needed a new glyph
+(`CHAR_FONT_PERIOD` in font.c/font.h — the font only defines characters
+actually used, see "Sprite storage format"'s font discussion). Verified in
+VICE via the `vice` MCP server: a throwaway build with `LOADING_JIFFIES`
+temporarily raised (see the jiffy-constant testing approach in "VICE MCP
+server gotcha 2" below) confirmed the border cycling through all 8 colors
+while the interior stayed solid black around the centered message, both
+matching intent.
+
 ## Title screen
 
 Implemented in [src/gameplay/title.c](src/gameplay/title.c), shown before
@@ -635,16 +663,17 @@ on the title screen showed it changing value over time (the tune
 progressing) without any checkpoint pausing execution; a Space press was
 still answered immediately (screen advanced to the countdown on the very
 next screenshot); `$900B` read back `00` right after, confirming
-`sound_music_stop()`. [src/main.c](src/main.c) loads resources once, then loops forever
-alternating `title_screen_run()` and `game_screen_run()`. Verified visually
-in VICE via the `vice` MCP server (`vice_keyboard_type`, not
+`sound_music_stop()`. [src/main.c](src/main.c) loads resources once, runs the
+one-time `loading_screen_run()` intro (see "Loading screen"), then loops
+forever alternating `title_screen_run()` and `game_screen_run()`. Verified
+visually in VICE via the `vice` MCP server (`vice_keyboard_type`, not
 `vice_keyboard_key_press`, to inject keys — see gotcha below). Build with:
 
 ```bash
 /Users/aboudou/Developer/VIC-20/llvm-mos/bin/mos-vic20-clang \
     -Os -T link/vic20-fruit-invaders.ld -o game.prg \
     src/main.c src/gameplay/title.c src/gameplay/help.c src/gameplay/game.c \
-    src/gameplay/lang.c \
+    src/gameplay/lang.c src/gameplay/loading.c \
     src/graphics/sprites.c src/graphics/screen.c src/graphics/font.c \
     src/graphics/bigfont.c src/graphics/decor.c src/graphics/starfield.c \
     src/graphics/charmem.c src/sound/sound.c
